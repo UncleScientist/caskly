@@ -2,9 +2,14 @@ use anyhow::Result;
 
 use crate::error::BlorbError;
 
+/// The IFF types that exist for blorb files
 #[derive(PartialEq, Debug)]
 pub enum BlorbType {
-    Ifrs, // 'IFRS'
+    /// "FORM" - specifies that the file is an IFF type file
+    Form,
+    /// "IFRS" - the FORM type for blorb files
+    Ifrs,
+    /// "RIdx" - a Resource Index chunk
     Ridx,
 }
 
@@ -16,6 +21,20 @@ impl TryFrom<String> for BlorbType {
             "IFRS" => Ok(Self::Ifrs),
             "RIdx" => Ok(Self::Ridx),
             _ => Err(BlorbError::InvalidResourceType(s)),
+        }
+    }
+}
+
+impl TryFrom<&[u8]> for BlorbType {
+    type Error = BlorbError;
+
+    fn try_from(t: &[u8]) -> Result<Self, BlorbError> {
+        match t {
+            b"IFRS" => Ok(Self::Ifrs),
+            b"RIdx" => Ok(Self::Ridx),
+            _ => Err(BlorbError::InvalidResourceType(
+                std::str::from_utf8(t).unwrap().to_string(),
+            )),
         }
     }
 }
