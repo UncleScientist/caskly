@@ -11,6 +11,10 @@ pub enum BlorbType {
     Ifrs,
     /// "RIdx" - a Resource Index chunk
     Ridx,
+    /// "Exec" - an RIDx usage type, executable chunk
+    Exec,
+    /// "Pict" - an RIDx usage type, an image chunk
+    Pict,
 }
 
 impl TryFrom<String> for BlorbType {
@@ -18,8 +22,11 @@ impl TryFrom<String> for BlorbType {
 
     fn try_from(s: String) -> Result<Self, BlorbError> {
         match s.as_str() {
+            "FORM" => Ok(Self::Form),
             "IFRS" => Ok(Self::Ifrs),
             "RIdx" => Ok(Self::Ridx),
+            "Exec" => Ok(Self::Exec),
+            "Pict" => Ok(Self::Pict),
             _ => Err(BlorbError::InvalidResourceType(s)),
         }
     }
@@ -30,11 +37,12 @@ impl TryFrom<&[u8]> for BlorbType {
 
     fn try_from(t: &[u8]) -> Result<Self, BlorbError> {
         match t {
+            b"FORM" => Ok(Self::Form),
             b"IFRS" => Ok(Self::Ifrs),
             b"RIdx" => Ok(Self::Ridx),
-            _ => Err(BlorbError::InvalidResourceType(
-                std::str::from_utf8(t).unwrap().to_string(),
-            )),
+            b"Exec" => Ok(Self::Exec),
+            b"Pict" => Ok(Self::Pict),
+            _ => Err(BlorbError::InvalidResourceType(format!("given: {t:?}"))),
         }
     }
 }

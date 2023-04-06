@@ -11,6 +11,7 @@
 
 /// reader
 pub mod reader;
+pub use reader::*;
 
 /// chunks
 pub mod chunk;

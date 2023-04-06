@@ -9,12 +9,14 @@ pub struct BlorbReader {
     ridx: Vec<RsrcIndex>,
 }
 
+#[derive(Debug)]
 pub(crate) struct RsrcIndex {
     usage: BlorbType,
     id: usize,
     offset: usize,
 }
 
+#[derive(Debug)]
 pub(crate) struct RsrcInfo {
     pub(crate) blorb_type: BlorbType,
     size: usize,
@@ -34,8 +36,13 @@ impl BlorbReader {
             return Err(BlorbError::InvalidFileType);
         }
 
-        let mut ridx = Vec::new();
+        if !stream.next_chunk_is(BlorbType::Ridx) {
+            return Err(BlorbError::InvalidFileType);
+        }
+        let _size = stream.read_chunk_size()?;
         let count = stream.read_chunk_size()?;
+
+        let mut ridx = Vec::new();
         for _ in 0..count {
             let usage = stream.read_chunk_type()?;
             let id = stream.read_chunk_size()?;
@@ -44,6 +51,10 @@ impl BlorbReader {
         }
 
         Ok(Self { stream, ridx })
+    }
+
+    pub fn dump_rsrc_usage(&self) {
+        println!("{:?}", self.ridx);
     }
 
     /// Retrieve a resouce by Resource ID as defined in the RIdx chunk
