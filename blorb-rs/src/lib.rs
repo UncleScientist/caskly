@@ -20,3 +20,5 @@ pub mod error;
 
 /// types
 pub mod types;
+
+mod stream;

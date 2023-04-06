@@ -3,7 +3,7 @@ use anyhow::Result;
 use crate::error::BlorbError;
 
 /// The IFF types that exist for blorb files
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Copy, Clone)]
 pub enum BlorbType {
     /// "FORM" - specifies that the file is an IFF type file
     Form,

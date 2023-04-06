@@ -1,18 +1,12 @@
-use std::cell::RefCell;
-
 use crate::chunk::BlorbChunk;
 use crate::error::BlorbError;
+use crate::stream::BlorbStream;
 use crate::types::BlorbType;
 
 /// A reader for blorb files
 pub struct BlorbReader {
     stream: BlorbStream,
     ridx: Vec<RsrcIndex>,
-}
-
-pub(crate) struct BlorbStream {
-    bytes: Vec<u8>,
-    cursor: RefCell<usize>,
 }
 
 pub(crate) struct RsrcIndex {
@@ -29,10 +23,7 @@ pub(crate) struct RsrcInfo {
 impl BlorbReader {
     /// Create a blorb file reader from a vec of bytes
     pub fn new(bytes: Vec<u8>) -> Result<Self, BlorbError> {
-        let stream = BlorbStream {
-            bytes,
-            cursor: RefCell::new(0),
-        };
+        let stream = BlorbStream::new(bytes);
 
         if !stream.next_chunk_is(BlorbType::Form) {
             return Err(BlorbError::InvalidFileType);
@@ -43,20 +34,28 @@ impl BlorbReader {
             return Err(BlorbError::InvalidFileType);
         }
 
-        Ok(Self {
-            stream,
-            ridx: Vec::new(),
-        })
+        let mut ridx = Vec::new();
+        let count = stream.read_chunk_size()?;
+        for _ in 0..count {
+            let usage = stream.read_chunk_type()?;
+            let id = stream.read_chunk_size()?;
+            let offset = stream.read_chunk_size()?;
+            ridx.push(RsrcIndex { usage, id, offset });
+        }
+
+        Ok(Self { stream, ridx })
     }
 
     /// Retrieve a resouce by Resource ID as defined in the RIdx chunk
-    pub fn get_resource_by_id(&self, _id: usize) -> Result<BlorbChunk, BlorbError> {
-        let RsrcInfo { blorb_type, size } = self.get_rsrc_info()?;
-        let offset = 0; // *self.cursor.borrow();
-        Ok(BlorbChunk::new(
-            blorb_type,
-            &self.stream.bytes[offset..offset + size],
-        ))
+    pub fn get_resource_by_id(&self, id: usize) -> Result<BlorbChunk, BlorbError> {
+        for rsrc in &self.ridx {
+            if rsrc.id == id {
+                let offset = rsrc.offset;
+                self.stream.seek(offset);
+                return Ok(self.stream.read_chunk()?.with_usage(rsrc.usage));
+            }
+        }
+        Err(BlorbError::NonExistentResource(id))
     }
 
     pub(crate) fn get_rsrc_info(&self) -> Result<RsrcInfo, BlorbError> {
@@ -65,34 +64,13 @@ impl BlorbReader {
 
         Ok(RsrcInfo { blorb_type, size })
     }
-}
 
-impl BlorbStream {
-    fn next_chunk_is(&self, blorb_type: BlorbType) -> bool {
-        if let Ok(read_type) = self.read_chunk_type() {
-            blorb_type == read_type
-        } else {
-            false
-        }
-    }
-
-    fn read_chunk_type(&self) -> Result<BlorbType, BlorbError> {
-        let offset = *self.cursor.borrow();
-
-        // TODO: check offset in range
-        *self.cursor.borrow_mut() += 4;
-
-        (&self.bytes[offset..offset + 4]).try_into()
-    }
-
-    fn read_chunk_size(&self) -> Result<usize, BlorbError> {
-        let offset = *self.cursor.borrow();
-
-        // TODO: check offset in range
-        *self.cursor.borrow_mut() += 4;
-        Ok((self.bytes[offset] as usize) << 24
-            | (self.bytes[offset + 1] as usize) << 16
-            | (self.bytes[offset + 2] as usize) << 8
-            | (self.bytes[offset + 3]) as usize)
+    pub(crate) fn read_next_chunk(&self) -> Result<BlorbChunk, BlorbError> {
+        let blorb_type = self.stream.read_chunk_type()?;
+        let chunk_size = self.stream.read_chunk_size()?;
+        Ok(BlorbChunk::new(
+            blorb_type,
+            self.stream.get_next_chunk(chunk_size),
+        ))
     }
 }
