@@ -16,11 +16,13 @@ pub(crate) struct RsrcIndex {
     offset: usize,
 }
 
+/*
 #[derive(Debug)]
 pub(crate) struct RsrcInfo {
     resource_type: ResourceType,
     size: usize,
 }
+*/
 
 impl BlorbReader {
     /// Create a blorb file reader from a vec of bytes
@@ -53,6 +55,7 @@ impl BlorbReader {
         Ok(Self { stream, ridx })
     }
 
+    /// Display a resource information entry
     pub fn dump_rsrc_usage(&self) {
         println!("{:?}", self.ridx);
     }
@@ -81,6 +84,7 @@ impl BlorbReader {
     }
     */
 
+    /*
     pub(crate) fn read_next_chunk(&self) -> Result<BlorbChunk, BlorbError> {
         let blorb_type = self.stream.read_chunk_type()?;
         let chunk_size = self.stream.read_chunk_size()?;
@@ -89,4 +93,5 @@ impl BlorbReader {
             self.stream.get_next_chunk(chunk_size),
         ))
     }
+    */
 }

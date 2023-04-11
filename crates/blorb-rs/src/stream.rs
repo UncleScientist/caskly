@@ -19,10 +19,12 @@ impl BlorbStream {
         }
     }
 
+    /*
     pub fn get_next_chunk(&self, size: usize) -> &[u8] {
         let offset = *self.cursor.borrow();
         &(self.bytes[offset..offset + size])
     }
+    */
 
     pub fn read_chunk(&self) -> Result<BlorbChunk, BlorbError> {
         let offset = *self.cursor.borrow();
