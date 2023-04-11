@@ -14,4 +14,8 @@ pub enum BlorbError {
     /// User asked for an invalid resource ID
     #[error("No such resource {0}")]
     NonExistentResource(usize),
+
+    /// Reached the end of the file
+    #[error("End of file")]
+    EndOfFile,
 }

@@ -94,12 +94,14 @@ impl BlorbReader {
         ))
     }
 
+    /// Returns an iterator which walks all of the chunks in a blorb file
     pub fn iter<'a>(&'a self) -> BlorbIterator<'a> {
         self.stream.seek(12);
         BlorbIterator { blorb: self }
     }
 }
 
+/// An iterator over all the chunks in a blorb file
 pub struct BlorbIterator<'a> {
     blorb: &'a BlorbReader,
 }

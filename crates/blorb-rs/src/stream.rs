@@ -56,7 +56,10 @@ impl BlorbStream {
     pub fn read_chunk_type(&self) -> Result<BlorbType, BlorbError> {
         let offset = *self.cursor.borrow();
 
-        // TODO: check offset in range
+        if offset + 4 >= self.bytes.len() {
+            return Err(BlorbError::EndOfFile);
+        }
+
         *self.cursor.borrow_mut() += 4;
 
         (&self.bytes[offset..offset + 4]).try_into()

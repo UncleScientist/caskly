@@ -12,10 +12,14 @@ pub enum BlorbType {
     Ifrs,
     /// "RIdx" - a Resource Index chunk
     Ridx,
-    /// "Exec" - an RIDx usage type, executable chunk
-    Exec,
-    /// "Pict" - an RIDx usage type, an image chunk
-    Pict,
+    /// A Glulx executable chunk
+    Glul,
+    /// Blorb file metadata
+    Ifmd,
+    /// A Fronispiece chunk
+    Fspc,
+    /// A PNG image chunk
+    Png,
 }
 
 /// In the RIdx chunk, the file defines four different types of resources
@@ -72,7 +76,11 @@ blorb_type_try_from!(
     BlorbType,
     Form => "FORM",
     Ifrs => "IFRS",
-    Ridx => "RIdx"
+    Ridx => "RIdx",
+    Ifmd => "IFmd",
+    Fspc => "Fspc",
+    Png => "PNG ",
+    Glul => "GLUL"
 );
 
 #[cfg(test)]
