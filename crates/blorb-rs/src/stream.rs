@@ -6,6 +6,7 @@ use crate::{
     types::{BlorbType, ResourceType},
 };
 
+#[derive(Debug)]
 pub(crate) struct BlorbStream {
     bytes: Vec<u8>,
     cursor: RefCell<usize>,
@@ -19,12 +20,11 @@ impl BlorbStream {
         }
     }
 
-    /*
     pub fn get_next_chunk(&self, size: usize) -> &[u8] {
         let offset = *self.cursor.borrow();
+        *self.cursor.borrow_mut() += size;
         &(self.bytes[offset..offset + size])
     }
-    */
 
     pub fn read_chunk(&self) -> Result<BlorbChunk, BlorbError> {
         let offset = *self.cursor.borrow();
@@ -39,6 +39,10 @@ impl BlorbStream {
     pub fn seek(&self, offset: usize) {
         // TODO: check range
         *self.cursor.borrow_mut() = offset;
+    }
+
+    pub fn get_offset(&self) -> usize {
+        *self.cursor.borrow()
     }
 
     pub fn next_chunk_is(&self, blorb_type: BlorbType) -> bool {

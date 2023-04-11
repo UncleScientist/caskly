@@ -4,6 +4,7 @@ use crate::stream::BlorbStream;
 use crate::types::{BlorbType, ResourceType};
 
 /// A reader for blorb files
+#[derive(Debug)]
 pub struct BlorbReader {
     stream: BlorbStream,
     ridx: Vec<RsrcIndex>,
@@ -84,7 +85,6 @@ impl BlorbReader {
     }
     */
 
-    /*
     pub(crate) fn read_next_chunk(&self) -> Result<BlorbChunk, BlorbError> {
         let blorb_type = self.stream.read_chunk_type()?;
         let chunk_size = self.stream.read_chunk_size()?;
@@ -93,5 +93,29 @@ impl BlorbReader {
             self.stream.get_next_chunk(chunk_size),
         ))
     }
-    */
+
+    pub fn iter<'a>(&'a self) -> BlorbIterator<'a> {
+        self.stream.seek(12);
+        BlorbIterator { blorb: self }
+    }
+}
+
+pub struct BlorbIterator<'a> {
+    blorb: &'a BlorbReader,
+}
+
+impl<'a> Iterator for BlorbIterator<'a> {
+    type Item = BlorbChunk<'a>;
+    fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+        match self.blorb.read_next_chunk() {
+            Ok(chunk) => {
+                println!("got a chunk, offset = {}", self.blorb.stream.get_offset());
+                Some(chunk)
+            }
+            Err(e) => {
+                println!("no more chunks: {e}");
+                None
+            }
+        }
+    }
 }
