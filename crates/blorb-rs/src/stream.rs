@@ -43,10 +43,8 @@ impl BlorbStream {
 
     pub fn next_chunk_is(&self, blorb_type: BlorbType) -> bool {
         if let Ok(read_type) = self.read_chunk_type() {
-            println!("expecting {blorb_type:?}, read {read_type:?}");
             blorb_type == read_type
         } else {
-            println!("unable to extract chunk type");
             false
         }
     }
