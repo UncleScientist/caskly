@@ -17,35 +17,41 @@ pub enum BlorbType {
     Pict,
 }
 
-impl TryFrom<String> for BlorbType {
-    type Error = BlorbError;
+macro_rules! blorb_type_try_from {
+    ($type:ident, $($blorbType:ident => $string:expr),*) => {
+        impl TryFrom<String> for $type {
+            type Error = BlorbError;
 
-    fn try_from(s: String) -> Result<Self, BlorbError> {
-        match s.as_str() {
-            "FORM" => Ok(Self::Form),
-            "IFRS" => Ok(Self::Ifrs),
-            "RIdx" => Ok(Self::Ridx),
-            "Exec" => Ok(Self::Exec),
-            "Pict" => Ok(Self::Pict),
-            _ => Err(BlorbError::InvalidResourceType(s)),
+            fn try_from(s: String) -> Result<Self, BlorbError> {
+                match s.as_str() {
+                    $($string => Ok(Self::$blorbType),)*
+                    _ => Err(BlorbError::InvalidResourceType(s)),
+                }
+            }
+        }
+
+        impl TryFrom<&[u8]> for $type {
+            type Error = BlorbError;
+
+            fn try_from(t: &[u8]) -> Result<Self, BlorbError> {
+                $(const $blorbType: &'static [u8] = $string.as_bytes();)*
+                match t {
+                    $($blorbType => Ok(Self::$blorbType),)*
+                    _ => Err(BlorbError::InvalidResourceType(format!("given: {t:?}"))),
+                }
+            }
         }
     }
 }
 
-impl TryFrom<&[u8]> for BlorbType {
-    type Error = BlorbError;
-
-    fn try_from(t: &[u8]) -> Result<Self, BlorbError> {
-        match t {
-            b"FORM" => Ok(Self::Form),
-            b"IFRS" => Ok(Self::Ifrs),
-            b"RIdx" => Ok(Self::Ridx),
-            b"Exec" => Ok(Self::Exec),
-            b"Pict" => Ok(Self::Pict),
-            _ => Err(BlorbError::InvalidResourceType(format!("given: {t:?}"))),
-        }
-    }
-}
+blorb_type_try_from!(
+    BlorbType,
+    Form => "FORM",
+    Ifrs => "IFRS",
+    Ridx => "RIdx",
+    Exec => "Exec",
+    Pict => "Pict"
+);
 
 #[cfg(test)]
 mod test {
@@ -64,5 +70,13 @@ mod test {
     #[test]
     fn fails_on_invalid_input() {
         assert!(TryInto::<BlorbType>::try_into("asdflkjasdf".to_string()).is_err());
+    }
+
+    #[test]
+    fn can_read_u8_ifrs() {
+        assert_eq!(
+            Ok(BlorbType::Ifrs),
+            [b'I', b'F', b'R', b'S'][0..4].try_into()
+        );
     }
 }
