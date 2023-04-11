@@ -1,7 +1,7 @@
 use crate::chunk::BlorbChunk;
 use crate::error::BlorbError;
 use crate::stream::BlorbStream;
-use crate::types::BlorbType;
+use crate::types::{BlorbType, ResourceType};
 
 /// A reader for blorb files
 pub struct BlorbReader {
@@ -11,14 +11,14 @@ pub struct BlorbReader {
 
 #[derive(Debug)]
 pub(crate) struct RsrcIndex {
-    usage: BlorbType,
+    usage: ResourceType,
     id: usize,
     offset: usize,
 }
 
 #[derive(Debug)]
 pub(crate) struct RsrcInfo {
-    pub(crate) blorb_type: BlorbType,
+    resource_type: ResourceType,
     size: usize,
 }
 
@@ -44,7 +44,7 @@ impl BlorbReader {
 
         let mut ridx = Vec::new();
         for _ in 0..count {
-            let usage = stream.read_chunk_type()?;
+            let usage = stream.read_resource_type()?;
             let id = stream.read_chunk_size()?;
             let offset = stream.read_chunk_size()?;
             ridx.push(RsrcIndex { usage, id, offset });
@@ -69,12 +69,17 @@ impl BlorbReader {
         Err(BlorbError::NonExistentResource(id))
     }
 
+    /*
     pub(crate) fn get_rsrc_info(&self) -> Result<RsrcInfo, BlorbError> {
-        let blorb_type = self.stream.read_chunk_type()?;
+        let resource_type = self.stream.read_resource_type()?;
         let size: usize = self.stream.read_chunk_size()?;
 
-        Ok(RsrcInfo { blorb_type, size })
+        Ok(RsrcInfo {
+            resource_type,
+            size,
+        })
     }
+    */
 
     pub(crate) fn read_next_chunk(&self) -> Result<BlorbChunk, BlorbError> {
         let blorb_type = self.stream.read_chunk_type()?;

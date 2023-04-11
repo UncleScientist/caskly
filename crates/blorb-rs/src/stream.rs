@@ -1,6 +1,10 @@
 use std::cell::RefCell;
 
-use crate::{chunk::BlorbChunk, error::BlorbError, types::BlorbType};
+use crate::{
+    chunk::BlorbChunk,
+    error::BlorbError,
+    types::{BlorbType, ResourceType},
+};
 
 pub(crate) struct BlorbStream {
     bytes: Vec<u8>,
@@ -46,6 +50,15 @@ impl BlorbStream {
     }
 
     pub fn read_chunk_type(&self) -> Result<BlorbType, BlorbError> {
+        let offset = *self.cursor.borrow();
+
+        // TODO: check offset in range
+        *self.cursor.borrow_mut() += 4;
+
+        (&self.bytes[offset..offset + 4]).try_into()
+    }
+
+    pub fn read_resource_type(&self) -> Result<ResourceType, BlorbError> {
         let offset = *self.cursor.borrow();
 
         // TODO: check offset in range

@@ -2,7 +2,7 @@ use crate::types::*;
 
 /// An IFRS chunk
 pub struct BlorbChunk<'a> {
-    usage: Option<BlorbType>,
+    usage: Option<ResourceType>,
     blorb_type: BlorbType,
     bytes: &'a [u8],
 }
@@ -16,7 +16,7 @@ impl<'a> BlorbChunk<'a> {
         }
     }
 
-    pub(crate) fn with_usage(mut self, usage: BlorbType) -> Self {
+    pub(crate) fn with_usage(mut self, usage: ResourceType) -> Self {
         self.usage = Some(usage);
         self
     }

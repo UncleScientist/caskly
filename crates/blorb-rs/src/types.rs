@@ -1,4 +1,5 @@
 use anyhow::Result;
+use paste::paste;
 
 use crate::error::BlorbError;
 
@@ -15,6 +16,19 @@ pub enum BlorbType {
     Exec,
     /// "Pict" - an RIDx usage type, an image chunk
     Pict,
+}
+
+/// In the RIdx chunk, the file defines four different types of resources
+#[derive(PartialEq, Debug, Copy, Clone)]
+pub enum ResourceType {
+    /// "Pict" - an image resource
+    Pict,
+    /// "Snd " - a sound resource
+    Sound,
+    /// "Data" - a chunk of data
+    Data,
+    /// "Exec" - the executable game to play
+    Executable,
 }
 
 macro_rules! blorb_type_try_from {
@@ -34,10 +48,12 @@ macro_rules! blorb_type_try_from {
             type Error = BlorbError;
 
             fn try_from(t: &[u8]) -> Result<Self, BlorbError> {
-                $(const $blorbType: &'static [u8] = $string.as_bytes();)*
-                match t {
-                    $($blorbType => Ok(Self::$blorbType),)*
-                    _ => Err(BlorbError::InvalidResourceType(format!("given: {t:?}"))),
+                paste! {
+                    $(const [<$blorbType:upper>] : &'static [u8] = $string.as_bytes();)*
+                    match t {
+                        $([<$blorbType:upper>] => Ok(Self::$blorbType),)*
+                        _ => Err(BlorbError::InvalidResourceType(format!("given: {t:?}"))),
+                    }
                 }
             }
         }
@@ -45,12 +61,18 @@ macro_rules! blorb_type_try_from {
 }
 
 blorb_type_try_from!(
+    ResourceType,
+    Pict => "Pict",
+    Sound => "Snd ",
+    Data => "Data",
+    Executable => "Exec"
+);
+
+blorb_type_try_from!(
     BlorbType,
     Form => "FORM",
     Ifrs => "IFRS",
-    Ridx => "RIdx",
-    Exec => "Exec",
-    Pict => "Pict"
+    Ridx => "RIdx"
 );
 
 #[cfg(test)]
@@ -78,5 +100,10 @@ mod test {
             Ok(BlorbType::Ifrs),
             [b'I', b'F', b'R', b'S'][0..4].try_into()
         );
+    }
+
+    #[test]
+    fn can_read_pict_resource_type() {
+        assert_eq!(Ok(ResourceType::Pict), "Pict".to_string().try_into());
     }
 }
