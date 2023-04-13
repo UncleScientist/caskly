@@ -1,0 +1,13 @@
+[package]
+name = "display_splash_screen"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+eframe = "0.21.3"
+egui = "0.21.0"
+egui_extras = { version = "0.21.0", features = ["image"] }
+image = { version = "0.24", features = ["jpeg", "png"] }
+blorb = { path = "../blorb-rs" }
