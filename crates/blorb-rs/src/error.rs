@@ -18,4 +18,8 @@ pub enum BlorbError {
     /// Reached the end of the file
     #[error("End of file")]
     EndOfFile,
+
+    /// Could not convert generic blorb type into a known chunk type
+    #[error("Cannot convert")]
+    ConversionFailed,
 }

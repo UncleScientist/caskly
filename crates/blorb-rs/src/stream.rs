@@ -32,7 +32,7 @@ impl BlorbStream {
         let size = self.read_chunk_size()?;
         Ok(BlorbChunk::new(
             blorb_type,
-            &(self.bytes[offset..offset + size]),
+            &(self.bytes[offset + 8..offset + 8 + size]),
         ))
     }
 
@@ -41,7 +41,7 @@ impl BlorbStream {
         *self.cursor.borrow_mut() = offset;
     }
 
-    pub fn get_offset(&self) -> usize {
+    pub fn _get_offset(&self) -> usize {
         *self.cursor.borrow()
     }
 

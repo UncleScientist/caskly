@@ -1,4 +1,4 @@
-use crate::chunk::BlorbChunk;
+use crate::chunk::{BlorbChunk, Chunk};
 use crate::error::BlorbError;
 use crate::stream::BlorbStream;
 use crate::types::{BlorbType, ResourceType};
@@ -73,6 +73,21 @@ impl BlorbReader {
         Err(BlorbError::NonExistentResource(id))
     }
 
+    /// An iterator over chunks of a given type
+    pub fn iter_type(&self, blorb_type: BlorbType) -> BlorbTypeIterator {
+        self.stream.seek(12);
+        BlorbTypeIterator {
+            blorb: self,
+            blorb_type,
+        }
+    }
+
+    /// Convenience function to retrieve the first entry from an iterator
+    pub fn get_first_rsrc_by_type(&self, blorb_type: BlorbType) -> Option<Chunk> {
+        let next_by_type = &self.iter_type(blorb_type).next()?;
+        next_by_type.try_into().ok()
+    }
+
     /*
     pub(crate) fn get_rsrc_info(&self) -> Result<RsrcInfo, BlorbError> {
         let resource_type = self.stream.read_resource_type()?;
@@ -95,7 +110,7 @@ impl BlorbReader {
     }
 
     /// Returns an iterator which walks all of the chunks in a blorb file
-    pub fn iter<'a>(&'a self) -> BlorbIterator<'a> {
+    pub fn iter(&self) -> BlorbIterator {
         self.stream.seek(12);
         BlorbIterator { blorb: self }
     }
@@ -110,13 +125,30 @@ impl<'a> Iterator for BlorbIterator<'a> {
     type Item = BlorbChunk<'a>;
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         match self.blorb.read_next_chunk() {
-            Ok(chunk) => {
-                println!("got a chunk, offset = {}", self.blorb.stream.get_offset());
-                Some(chunk)
-            }
-            Err(e) => {
-                println!("no more chunks: {e}");
-                None
+            Ok(chunk) => Some(chunk),
+            Err(_) => None,
+        }
+    }
+}
+
+/// Iterator for a specific type of resource
+pub struct BlorbTypeIterator<'a> {
+    blorb: &'a BlorbReader,
+    blorb_type: BlorbType,
+}
+
+impl<'a> Iterator for BlorbTypeIterator<'a> {
+    type Item = BlorbChunk<'a>;
+    fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+        loop {
+            match self.blorb.read_next_chunk() {
+                Ok(chunk) if chunk.blorb_type == self.blorb_type => {
+                    return Some(chunk);
+                }
+                Err(_) => {
+                    return None;
+                }
+                _ => {}
             }
         }
     }
