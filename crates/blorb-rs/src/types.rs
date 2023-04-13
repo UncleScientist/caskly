@@ -20,6 +20,8 @@ pub enum BlorbType {
     Fspc,
     /// A PNG image chunk
     Png,
+    /// A JPeg image chunk
+    Jpeg,
 }
 
 /// In the RIdx chunk, the file defines four different types of resources
@@ -80,6 +82,7 @@ blorb_type_try_from!(
     Ifmd => "IFmd",
     Fspc => "Fspc",
     Png => "PNG ",
+    Jpeg => "JPEG",
     Glul => "GLUL"
 );
 
