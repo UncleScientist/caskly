@@ -1,7 +1,8 @@
+use std::fmt::{Debug, Formatter};
+
 use crate::{error::BlorbError, types::*};
 
 /// A raw IFRS chunk
-#[derive(Debug)]
 pub struct BlorbChunk<'a> {
     usage: Option<ResourceType>,
     /// The type of data stored in the bytes field
@@ -31,11 +32,38 @@ impl<'a> BlorbChunk<'a> {
     }
 }
 
+impl<'a> Debug for BlorbChunk<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(
+            f,
+            "{{ usage = {}",
+            if let Some(u) = self.usage {
+                format!("Some({u:?})")
+            } else {
+                "None".to_string()
+            }
+        )?;
+        write!(f, ", blorb_type = {:?}, [ ", self.blorb_type)?;
+        for (i, b) in self.bytes.iter().enumerate().take(4) {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{b}")?;
+        }
+        if self.bytes.len() > 4 {
+            write!(f, ", ... ] }}")?;
+        } else {
+            write!(f, " ]")?;
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
 
-    fn implements_debug<T: std::fmt::Debug>() {}
+    fn implements_debug<T: Debug>() {}
 
     #[test]
     fn chunk_can_generate_debug_output() {
