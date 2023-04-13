@@ -53,7 +53,7 @@ impl<'a> Debug for BlorbChunk<'a> {
         if self.bytes.len() > 4 {
             write!(f, ", ... ] }}")?;
         } else {
-            write!(f, " ]")?;
+            write!(f, " ] }}")?;
         }
         Ok(())
     }
