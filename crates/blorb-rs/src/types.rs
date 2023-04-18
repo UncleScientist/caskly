@@ -58,7 +58,17 @@ macro_rules! blorb_type_try_from {
                     $(const [<$blorbType:upper>] : &'static [u8] = $string.as_bytes();)*
                     match t {
                         $([<$blorbType:upper>] => Ok(Self::$blorbType),)*
-                        _ => Err(BlorbError::InvalidResourceType(format!("given: {t:?}"))),
+                        _ => {
+                            let mut s = String::new();
+                            for byte in t {
+                                if *byte >= 32 && *byte <= 126 {
+                                    s.push(*byte as char);
+                                } else {
+                                    s.push_str(format!("'0x{byte}'").as_str());
+                                }
+                            }
+                            Err(BlorbError::InvalidResourceType(format!("given: \"{s}\"")))
+                        }
                     }
                 }
             }
