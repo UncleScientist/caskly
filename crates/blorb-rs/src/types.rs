@@ -18,6 +18,8 @@ pub enum BlorbType {
     Ifmd,
     /// A Fronispiece chunk
     Fspc,
+    /// A resource description chunk
+    Rdes,
     /// A PNG image chunk
     Png,
     /// A JPeg image chunk
@@ -93,6 +95,7 @@ blorb_type_try_from!(
     Ridx => "RIdx",
     Ifmd => "IFmd",
     Fspc => "Fspc",
+    Rdes => "RDes",
     Png => "PNG ",
     Jpeg => "JPEG",
     Glul => "GLUL",
