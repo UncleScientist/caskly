@@ -20,6 +20,12 @@ pub enum BlorbType {
     Fspc,
     /// A resource description chunk
     Rdes,
+    /// An AUTH chunk containing the name of the author or creator of the file
+    Auth,
+    /// A copyright chunk containing the copyright message (date and holder)
+    Copr,
+    /// An annotation chunk containing any textual annotation that the user or writing program sees fit to include
+    Anno,
     /// A PNG image chunk
     Png,
     /// A JPeg image chunk
@@ -96,6 +102,9 @@ blorb_type_try_from!(
     Ifmd => "IFmd",
     Fspc => "Fspc",
     Rdes => "RDes",
+    Auth => "AUTH",
+    Copr => "(c) ",
+    Anno => "ANNO",
     Png => "PNG ",
     Jpeg => "JPEG",
     Glul => "GLUL",

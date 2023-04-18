@@ -19,6 +19,15 @@ pub enum BlorbChunk {
 
     /// A resource description chunk
     ResourceDescription(Vec<TextDescription>),
+
+    /// An author chunk
+    Author(String),
+
+    /// A copyright chunk
+    Copyright(String),
+
+    /// An annotation chunk
+    Annotation(String),
 }
 
 /// A textual description of a visual or auditory resource
@@ -80,6 +89,9 @@ impl<'a> TryFrom<&RawBlorbChunk<'a>> for BlorbChunk {
     fn try_from(bc: &RawBlorbChunk<'a>) -> Result<Self, BlorbError> {
         match bc.blorb_type {
             BlorbType::Fspc => Ok(Self::Frontispiece(bytes_to_usize(bc.bytes)?)),
+            BlorbType::Auth => Ok(Self::Author(bytes_to_string(bc.bytes)?)),
+            BlorbType::Copr => Ok(Self::Copyright(bytes_to_string(bc.bytes)?)),
+            BlorbType::Anno => Ok(Self::Annotation(bytes_to_string(bc.bytes)?)),
             BlorbType::Rdes => {
                 let mut entries = Vec::new();
                 let mut offset = 4;
@@ -87,9 +99,7 @@ impl<'a> TryFrom<&RawBlorbChunk<'a>> for BlorbChunk {
                     let usage: ResourceType = bc.bytes[offset..offset + 4].try_into()?;
                     let number = bytes_to_usize(&bc.bytes[offset + 4..offset + 8])?;
                     let len = bytes_to_usize(&bc.bytes[offset + 8..offset + 12])?;
-                    let text = std::str::from_utf8(&bc.bytes[offset + 12..offset + 12 + len])
-                        .map_err(|_| BlorbError::InvalidUtf8String)?
-                        .to_string();
+                    let text = bytes_to_string(&bc.bytes[offset + 12..offset + 12 + len])?;
                     entries.push(TextDescription {
                         usage,
                         number,
@@ -102,6 +112,12 @@ impl<'a> TryFrom<&RawBlorbChunk<'a>> for BlorbChunk {
             _ => Err(BlorbError::ConversionFailed),
         }
     }
+}
+
+fn bytes_to_string(bytes: &[u8]) -> Result<String, BlorbError> {
+    Ok(std::str::from_utf8(bytes)
+        .map_err(|_| BlorbError::InvalidUtf8String)?
+        .to_string())
 }
 
 fn bytes_to_usize(bytes: &[u8]) -> Result<usize, BlorbError> {
