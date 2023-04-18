@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 
 use crate::{
-    chunk::BlorbChunk,
+    chunk::RawBlorbChunk,
     error::BlorbError,
     types::{BlorbType, ResourceType},
 };
@@ -26,11 +26,11 @@ impl BlorbStream {
         &(self.bytes[offset..offset + size])
     }
 
-    pub fn read_chunk(&self) -> Result<BlorbChunk, BlorbError> {
+    pub fn read_chunk(&self) -> Result<RawBlorbChunk, BlorbError> {
         let offset = *self.cursor.borrow();
         let blorb_type = self.read_chunk_type()?;
         let size = self.read_chunk_size()?;
-        Ok(BlorbChunk::new(
+        Ok(RawBlorbChunk::new(
             blorb_type,
             &(self.bytes[offset + 8..offset + 8 + size]),
         ))

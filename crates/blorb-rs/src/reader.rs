@@ -1,4 +1,4 @@
-use crate::chunk::{BlorbChunk, Chunk};
+use crate::chunk::{BlorbChunk, RawBlorbChunk};
 use crate::error::BlorbError;
 use crate::stream::BlorbStream;
 use crate::types::{BlorbType, ResourceType};
@@ -62,7 +62,7 @@ impl BlorbReader {
     }
 
     /// Retrieve a resouce by Resource ID as defined in the RIdx chunk
-    pub fn get_resource_by_id(&self, id: usize) -> Result<BlorbChunk, BlorbError> {
+    pub fn get_resource_by_id(&self, id: usize) -> Result<RawBlorbChunk, BlorbError> {
         for rsrc in &self.ridx {
             if rsrc.id == id {
                 let offset = rsrc.offset;
@@ -83,7 +83,7 @@ impl BlorbReader {
     }
 
     /// Convenience function to retrieve the first entry from an iterator
-    pub fn get_first_rsrc_by_type(&self, blorb_type: BlorbType) -> Option<Chunk> {
+    pub fn get_first_rsrc_by_type(&self, blorb_type: BlorbType) -> Option<BlorbChunk> {
         let next_by_type = &self.iter_type(blorb_type).next()?;
         match next_by_type {
             Ok(next) => next.try_into().ok(),
@@ -103,10 +103,10 @@ impl BlorbReader {
     }
     */
 
-    pub(crate) fn read_next_chunk(&self) -> Result<BlorbChunk, BlorbError> {
+    pub(crate) fn read_next_chunk(&self) -> Result<RawBlorbChunk, BlorbError> {
         let blorb_type = self.stream.read_chunk_type()?;
         let chunk_size = self.stream.read_chunk_size()?;
-        Ok(BlorbChunk::new(
+        Ok(RawBlorbChunk::new(
             blorb_type,
             self.stream.get_next_chunk(chunk_size),
         ))
@@ -125,7 +125,7 @@ pub struct BlorbIterator<'a> {
 }
 
 impl<'a> Iterator for BlorbIterator<'a> {
-    type Item = Result<BlorbChunk<'a>, BlorbError>;
+    type Item = Result<RawBlorbChunk<'a>, BlorbError>;
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         match self.blorb.read_next_chunk() {
             Ok(chunk) => Some(Ok(chunk)),
@@ -142,7 +142,7 @@ pub struct BlorbTypeIterator<'a> {
 }
 
 impl<'a> Iterator for BlorbTypeIterator<'a> {
-    type Item = Result<BlorbChunk<'a>, BlorbError>;
+    type Item = Result<RawBlorbChunk<'a>, BlorbError>;
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         loop {
             match self.blorb.read_next_chunk() {

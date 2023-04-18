@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-use blorb::{chunk::Chunk, types::BlorbType, BlorbReader};
+use blorb::{chunk::BlorbChunk, types::BlorbType, BlorbReader};
 use eframe::egui;
 use egui_extras::RetainedImage;
 
@@ -27,7 +27,7 @@ impl Default for MyApp {
         let filedata = std::fs::read(filename).expect("unable to open file");
         let blorb = BlorbReader::new(filedata).expect("can't create reader");
 
-        let Chunk::Frontispiece(fspc) = blorb
+        let BlorbChunk::Frontispiece(fspc) = blorb
             .get_first_rsrc_by_type(BlorbType::Fspc)
             .expect("can't convert type");
 

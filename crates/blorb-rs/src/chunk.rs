@@ -3,7 +3,7 @@ use std::fmt::{Debug, Formatter};
 use crate::{error::BlorbError, types::*};
 
 /// A raw IFRS chunk
-pub struct BlorbChunk<'a> {
+pub struct RawBlorbChunk<'a> {
     usage: Option<ResourceType>,
     /// The type of data stored in the bytes field
     pub blorb_type: BlorbType,
@@ -12,13 +12,13 @@ pub struct BlorbChunk<'a> {
 }
 
 /// Decoded chunk information
-pub enum Chunk {
+pub enum BlorbChunk {
     /// An Fspc resource chunk
     Frontispiece(usize),
 }
 
-impl<'a> BlorbChunk<'a> {
-    pub(crate) fn new(blorb_type: BlorbType, bytes: &'a [u8]) -> BlorbChunk {
+impl<'a> RawBlorbChunk<'a> {
+    pub(crate) fn new(blorb_type: BlorbType, bytes: &'a [u8]) -> RawBlorbChunk {
         Self {
             usage: None,
             blorb_type,
@@ -32,7 +32,7 @@ impl<'a> BlorbChunk<'a> {
     }
 }
 
-impl<'a> Debug for BlorbChunk<'a> {
+impl<'a> Debug for RawBlorbChunk<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
         write!(
             f,
@@ -67,14 +67,14 @@ mod test {
 
     #[test]
     fn chunk_can_generate_debug_output() {
-        implements_debug::<BlorbChunk>();
+        implements_debug::<RawBlorbChunk>();
     }
 }
 
-impl<'a> TryFrom<&BlorbChunk<'a>> for Chunk {
+impl<'a> TryFrom<&RawBlorbChunk<'a>> for BlorbChunk {
     type Error = BlorbError;
 
-    fn try_from(bc: &BlorbChunk<'a>) -> Result<Self, BlorbError> {
+    fn try_from(bc: &RawBlorbChunk<'a>) -> Result<Self, BlorbError> {
         match bc.blorb_type {
             BlorbType::Fspc => Ok(Self::Frontispiece(bytes_to_usize(bc.bytes)?)),
             _ => Err(BlorbError::ConversionFailed),
