@@ -22,6 +22,8 @@ pub enum BlorbType {
     Png,
     /// A JPeg image chunk
     Jpeg,
+    /// An Ogg Vorbis sound chunk
+    Oggv,
 }
 
 /// In the RIdx chunk, the file defines four different types of resources
@@ -93,7 +95,8 @@ blorb_type_try_from!(
     Fspc => "Fspc",
     Png => "PNG ",
     Jpeg => "JPEG",
-    Glul => "GLUL"
+    Glul => "GLUL",
+    Oggv => "OGGV"
 );
 
 #[cfg(test)]
