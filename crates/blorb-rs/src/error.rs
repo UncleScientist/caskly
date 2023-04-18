@@ -22,4 +22,8 @@ pub enum BlorbError {
     /// Could not convert generic blorb type into a known chunk type
     #[error("Cannot convert")]
     ConversionFailed,
+
+    /// Could not convert slice of bytes into a valid utf8 string
+    #[error("Not a utf8 string")]
+    InvalidUtf8String,
 }

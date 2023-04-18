@@ -1,4 +1,4 @@
-use blorb::BlorbReader;
+use blorb::{chunk::BlorbChunk, error::BlorbError, BlorbReader};
 
 fn main() {
     let filename = std::env::args().nth(1).unwrap();
@@ -9,11 +9,12 @@ fn main() {
         blorb.dump_rsrc_usage();
         for chunk in blorb.iter() {
             match chunk {
-                Ok(chunk) => println!("{chunk:?}"),
-                Err(e) => {
-                    eprintln!("Error: {e}");
-                    break;
-                }
+                Ok(chunk) => match TryInto::<BlorbChunk>::try_into(&chunk) {
+                    Ok(chunk) => println!("{chunk:?}"),
+                    Err(e) if e == BlorbError::ConversionFailed => println!("{chunk:?}"),
+                    Err(e) => panic!("interpration failed - {e}"),
+                },
+                Err(e) => panic!("invalid chunk - {e}"),
             }
         }
     } else {

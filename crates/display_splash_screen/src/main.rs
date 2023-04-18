@@ -29,7 +29,10 @@ impl Default for MyApp {
 
         let BlorbChunk::Frontispiece(fspc) = blorb
             .get_first_rsrc_by_type(BlorbType::Fspc)
-            .expect("can't convert type");
+            .expect("can't convert type")
+            else {
+                return Self::default();
+            };
 
         let image_data = blorb
             .get_resource_by_id(fspc)

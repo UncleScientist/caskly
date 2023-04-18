@@ -133,4 +133,9 @@ mod test {
     fn can_read_pict_resource_type() {
         assert_eq!(Ok(ResourceType::Pict), "Pict".to_string().try_into());
     }
+
+    #[test]
+    fn can_convert_rdes() {
+        assert_eq!(Ok(BlorbType::Rdes), "RDes".to_string().try_into());
+    }
 }
