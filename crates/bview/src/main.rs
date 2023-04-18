@@ -8,7 +8,13 @@ fn main() {
     if let Ok(blorb) = blorb {
         blorb.dump_rsrc_usage();
         for chunk in blorb.iter() {
-            println!("{chunk:?}");
+            match chunk {
+                Ok(chunk) => println!("{chunk:?}"),
+                Err(e) => {
+                    eprintln!("Error: {e}");
+                    break;
+                }
+            }
         }
     } else {
         let err = blorb.unwrap_err();

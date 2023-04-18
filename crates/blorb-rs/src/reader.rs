@@ -85,7 +85,10 @@ impl BlorbReader {
     /// Convenience function to retrieve the first entry from an iterator
     pub fn get_first_rsrc_by_type(&self, blorb_type: BlorbType) -> Option<Chunk> {
         let next_by_type = &self.iter_type(blorb_type).next()?;
-        next_by_type.try_into().ok()
+        match next_by_type {
+            Ok(next) => next.try_into().ok(),
+            Err(_) => None,
+        }
     }
 
     /*
@@ -122,11 +125,12 @@ pub struct BlorbIterator<'a> {
 }
 
 impl<'a> Iterator for BlorbIterator<'a> {
-    type Item = BlorbChunk<'a>;
+    type Item = Result<BlorbChunk<'a>, BlorbError>;
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         match self.blorb.read_next_chunk() {
-            Ok(chunk) => Some(chunk),
-            Err(_) => None,
+            Ok(chunk) => Some(Ok(chunk)),
+            Err(BlorbError::EndOfFile) => None,
+            Err(e) => Some(Err(e)),
         }
     }
 }
@@ -138,16 +142,15 @@ pub struct BlorbTypeIterator<'a> {
 }
 
 impl<'a> Iterator for BlorbTypeIterator<'a> {
-    type Item = BlorbChunk<'a>;
+    type Item = Result<BlorbChunk<'a>, BlorbError>;
     fn next(&mut self) -> Option<<Self as Iterator>::Item> {
         loop {
             match self.blorb.read_next_chunk() {
                 Ok(chunk) if chunk.blorb_type == self.blorb_type => {
-                    return Some(chunk);
+                    return Some(Ok(chunk));
                 }
-                Err(_) => {
-                    return None;
-                }
+                Err(BlorbError::EndOfFile) => return None,
+                Err(e) => return Some(Err(e)),
                 _ => {}
             }
         }

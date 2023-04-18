@@ -22,7 +22,7 @@ impl BlorbStream {
 
     pub fn get_next_chunk(&self, size: usize) -> &[u8] {
         let offset = *self.cursor.borrow();
-        *self.cursor.borrow_mut() += size;
+        *self.cursor.borrow_mut() += size + (size % 2);
         &(self.bytes[offset..offset + size])
     }
 
@@ -83,5 +83,24 @@ impl BlorbStream {
             | (self.bytes[offset + 1] as usize) << 16
             | (self.bytes[offset + 2] as usize) << 8
             | (self.bytes[offset + 3]) as usize)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn read_even_number_of_bytes() {
+        let stream = BlorbStream::new(vec![0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        let _ = stream.get_next_chunk(4);
+        assert_eq!(*stream.cursor.borrow(), 4);
+    }
+
+    #[test]
+    fn read_odd_number_of_bytes() {
+        let stream = BlorbStream::new(vec![0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        let _ = stream.get_next_chunk(3);
+        assert_eq!(*stream.cursor.borrow(), 4);
     }
 }
