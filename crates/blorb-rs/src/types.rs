@@ -26,6 +26,10 @@ pub enum BlorbType {
     Copr,
     /// An annotation chunk containing any textual annotation that the user or writing program sees fit to include
     Anno,
+    /// A text (utf-8 *or* latin-1) chunk
+    Text,
+    /// A binary chunk of data
+    Bina,
     /// A PNG image chunk
     Png,
     /// A JPeg image chunk
@@ -36,6 +40,8 @@ pub enum BlorbType {
     Mod,
     /// An Ogg Vorbis sound chunk
     Oggv,
+    /// A Song file format chunk
+    Song,
 }
 
 /// In the RIdx chunk, the file defines four different types of resources
@@ -109,12 +115,15 @@ blorb_type_try_from!(
     Auth => "AUTH",
     Copr => "(c) ",
     Anno => "ANNO",
+    Text => "TEXT",
+    Bina => "BINA",
     Png => "PNG ",
     Jpeg => "JPEG",
     Rect => "Rect",
     Glul => "GLUL",
     Mod => "MOD ",
-    Oggv => "OGGV"
+    Oggv => "OGGV",
+    Song => "Song"
 );
 
 #[cfg(test)]

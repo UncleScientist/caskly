@@ -86,6 +86,7 @@ impl<'a> Debug for RawBlorbChunk<'a> {
     }
 }
 
+// TODO: look into using the binread crate to do the conversions for us
 impl<'a> TryFrom<&RawBlorbChunk<'a>> for BlorbChunk {
     type Error = BlorbError;
 
