@@ -30,6 +30,8 @@ pub enum BlorbType {
     Png,
     /// A JPeg image chunk
     Jpeg,
+    /// A Rect placeholder picture chunk
+    Rect,
     /// An MOD sound format chunk
     Mod,
     /// An Ogg Vorbis sound chunk
@@ -109,6 +111,7 @@ blorb_type_try_from!(
     Anno => "ANNO",
     Png => "PNG ",
     Jpeg => "JPEG",
+    Rect => "Rect",
     Glul => "GLUL",
     Mod => "MOD ",
     Oggv => "OGGV"

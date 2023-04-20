@@ -12,26 +12,29 @@ pub struct RawBlorbChunk<'a> {
 }
 
 /// Decoded chunk information
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum BlorbChunk {
-    /// An Fspc resource chunk
+    /// An Fspc resource chunk (Blorb Spec section 9)
     Frontispiece(usize),
 
-    /// A resource description chunk
+    /// A resource description chunk (Blorb Spec section 9)
     ResourceDescription(Vec<TextDescription>),
 
-    /// An author chunk
+    /// An author chunk (Blorb Spec section 12)
     Author(String),
 
-    /// A copyright chunk
+    /// A copyright chunk (Blorb Spec section 12)
     Copyright(String),
 
-    /// An annotation chunk
+    /// An annotation chunk (Blorb Spec section 12)
     Annotation(String),
+
+    /// A "Rect" placeholder image (Blorb Spec section 2.3)
+    Placeholder(usize, usize),
 }
 
 /// A textual description of a visual or auditory resource
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct TextDescription {
     /// Resource Usage
     pub usage: ResourceType,
@@ -92,6 +95,11 @@ impl<'a> TryFrom<&RawBlorbChunk<'a>> for BlorbChunk {
             BlorbType::Auth => Ok(Self::Author(bytes_to_string(bc.bytes)?)),
             BlorbType::Copr => Ok(Self::Copyright(bytes_to_string(bc.bytes)?)),
             BlorbType::Anno => Ok(Self::Annotation(bytes_to_string(bc.bytes)?)),
+            BlorbType::Rect => {
+                let width = bytes_to_usize(&bc.bytes[0..4])?;
+                let height = bytes_to_usize(&bc.bytes[4..8])?;
+                Ok(Self::Placeholder(width, height))
+            }
             BlorbType::Rdes => {
                 let mut entries = Vec::new();
                 let mut offset = 4;
@@ -138,8 +146,8 @@ mod test {
 
     #[test]
     fn can_read_rdes_data() {
-        let bytes: [u8; 54] = [
-            0, 0, 0, 2, 0x50, 0x69, 0x63, 0x74, 0, 0, 0, 3, 0, 0, 0, 0xd, 0x64, 0x69, 0x6d, 0x20,
+        let bytes = [
+            0u8, 0, 0, 2, 0x50, 0x69, 0x63, 0x74, 0, 0, 0, 3, 0, 0, 0, 0xd, 0x64, 0x69, 0x6d, 0x20,
             0x6e, 0x6f, 0x72, 0x74, 0x68, 0x77, 0x65, 0x73, 0x74, 0x50, 0x69, 0x63, 0x74, 0, 0, 0,
             4, 0, 0, 0, 0xd, 0x64, 0x69, 0x6d, 0x20, 0x6e, 0x6f, 0x72, 0x74, 0x68, 0x77, 0x65,
             0x73, 0x74,
@@ -155,6 +163,18 @@ mod test {
             BlorbChunk::ResourceDescription(v) => assert_eq!(v.len(), 2),
             _ => panic!("invalid conversion"),
         }
+    }
+
+    #[test]
+    fn can_interpret_rect_chunk() {
+        let bytes = [0u8, 0, 1, 0, 0, 0, 2, 0];
+        let rbc = RawBlorbChunk {
+            usage: None,
+            blorb_type: BlorbType::Rect,
+            bytes: &bytes,
+        };
+        let rdes: BlorbChunk = (&rbc).try_into().expect("could not convert");
+        assert_eq!(BlorbChunk::Placeholder(256, 512), rdes);
     }
 
     fn implements_debug<T: Debug>() {}
