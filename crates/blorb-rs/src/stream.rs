@@ -30,6 +30,7 @@ impl BlorbStream {
         let offset = *self.cursor.borrow();
         let blorb_type = self.read_chunk_type()?;
         let size = self.read_chunk_size()?;
+
         Ok(RawBlorbChunk::new(
             blorb_type,
             &(self.bytes[offset + 8..offset + 8 + size]),
