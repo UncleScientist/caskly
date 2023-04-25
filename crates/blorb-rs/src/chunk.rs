@@ -31,6 +31,18 @@ pub enum BlorbChunk {
 
     /// A "Rect" placeholder image (Blorb Spec section 2.3)
     Placeholder(usize, usize),
+
+    /// A game identifier for Z-Code files
+    GameIdentifier {
+        /// release numer ($2 in header)
+        release_number: u16,
+        /// serial number ($12 in header)
+        serial_number: [u8; 6],
+        /// checksum ($1C in header)
+        checksum: u16,
+        /// Starting PC value
+        pc: [u8; 3],
+    },
 }
 
 /// A textual description of a visual or auditory resource
@@ -96,6 +108,21 @@ impl<'a> TryFrom<&RawBlorbChunk<'a>> for BlorbChunk {
             BlorbType::Auth => Ok(Self::Author(bytes_to_string(bc.bytes)?)),
             BlorbType::Copr => Ok(Self::Copyright(bytes_to_string(bc.bytes)?)),
             BlorbType::Anno => Ok(Self::Annotation(bytes_to_string(bc.bytes)?)),
+            BlorbType::Ifhd => {
+                if bc.bytes.len() != 13 {
+                    return Err(BlorbError::ConversionFailed);
+                }
+                let mut serial_number = [0; 6];
+                let mut pc = [0; 3];
+                serial_number.clone_from_slice(&bc.bytes[2..8]);
+                pc.clone_from_slice(&bc.bytes[10..13]);
+                Ok(Self::GameIdentifier {
+                    release_number: bytes_to_u16(&bc.bytes[0..2])?,
+                    serial_number,
+                    checksum: bytes_to_u16(&bc.bytes[8..10])?,
+                    pc,
+                })
+            }
             BlorbType::Rect => {
                 let width = bytes_to_usize(&bc.bytes[0..4])?;
                 let height = bytes_to_usize(&bc.bytes[4..8])?;
@@ -127,6 +154,14 @@ fn bytes_to_string(bytes: &[u8]) -> Result<String, BlorbError> {
     Ok(std::str::from_utf8(bytes)
         .map_err(|_| BlorbError::InvalidUtf8String)?
         .to_string())
+}
+
+fn bytes_to_u16(bytes: &[u8]) -> Result<u16, BlorbError> {
+    if bytes.len() != 2 {
+        Err(BlorbError::ConversionFailed)
+    } else {
+        Ok((bytes[0] as u16) << 8 | (bytes[1] as u16))
+    }
 }
 
 fn bytes_to_usize(bytes: &[u8]) -> Result<usize, BlorbError> {

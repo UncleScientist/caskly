@@ -36,6 +36,8 @@ pub enum BlorbType {
     Text,
     /// A binary chunk of data
     Bina,
+    /// An IF "header" identifier
+    Ifhd,
 
     // Images
     /// A PNG image chunk
@@ -127,6 +129,7 @@ blorb_type_try_from!(
     Anno => "ANNO",
     Text => "TEXT",
     Bina => "BINA",
+    Ifhd => "IFhd",
     Png => "PNG ",
     Jpeg => "JPEG",
     Rect => "Rect",

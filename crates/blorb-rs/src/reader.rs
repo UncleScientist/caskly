@@ -75,6 +75,22 @@ impl BlorbReader {
         None
     }
 
+    /// Retrieve the game idenfier chunk
+    pub fn get_game_identifier(&self) -> Option<RawBlorbChunk> {
+        for chunk in self.iter() {
+            match chunk {
+                Ok(chunk) => {
+                    if chunk.blorb_type == BlorbType::Ifhd {
+                        return Some(chunk);
+                    }
+                }
+                Err(_) => return None,
+            }
+        }
+
+        None
+    }
+
     /// Display a resource information entry
     pub fn dump_rsrc_usage(&self) {
         println!("{:?}", self.ridx);
