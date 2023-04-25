@@ -15,6 +15,10 @@ pub enum BlorbError {
     #[error("No such resource {0}")]
     NonExistentResource(usize),
 
+    /// The requested chunk type was not found in the blorb file
+    #[error("Chunk not found")]
+    ChunkNotFound,
+
     /// Reached the end of the file
     #[error("End of file")]
     EndOfFile,

@@ -56,15 +56,38 @@ impl BlorbReader {
         Ok(Self { stream, ridx })
     }
 
+    /// Retrieve the image associated with the Frontispiece chunk
+    pub fn get_frontispiece_image(&self) -> Option<RawBlorbChunk> {
+        for chunk in self.iter() {
+            match chunk {
+                Ok(chunk) => {
+                    let chunk: Option<BlorbChunk> = (&chunk).try_into().ok();
+                    if let Some(chunk) = chunk {
+                        if let BlorbChunk::Frontispiece(num) = chunk {
+                            return self.get_resource(ResourceType::Pict, num).ok();
+                        }
+                    }
+                }
+                Err(_) => return None,
+            }
+        }
+
+        None
+    }
+
     /// Display a resource information entry
     pub fn dump_rsrc_usage(&self) {
         println!("{:?}", self.ridx);
     }
 
     /// Retrieve a resouce by Resource ID as defined in the RIdx chunk
-    pub fn get_resource_by_id(&self, id: usize) -> Result<RawBlorbChunk, BlorbError> {
+    pub fn get_resource(
+        &self,
+        usage: ResourceType,
+        id: usize,
+    ) -> Result<RawBlorbChunk, BlorbError> {
         for rsrc in &self.ridx {
-            if rsrc.id == id {
+            if rsrc.id == id && rsrc.usage == usage {
                 let offset = rsrc.offset;
                 self.stream.seek(offset);
                 return Ok(self.stream.read_chunk()?.with_usage(rsrc.usage));
@@ -72,36 +95,6 @@ impl BlorbReader {
         }
         Err(BlorbError::NonExistentResource(id))
     }
-
-    /// An iterator over chunks of a given type
-    pub fn iter_type(&self, blorb_type: BlorbType) -> BlorbTypeIterator {
-        self.stream.seek(12);
-        BlorbTypeIterator {
-            blorb: self,
-            blorb_type,
-        }
-    }
-
-    /// Convenience function to retrieve the first entry from an iterator
-    pub fn get_first_rsrc_by_type(&self, blorb_type: BlorbType) -> Option<BlorbChunk> {
-        let next_by_type = &self.iter_type(blorb_type).next()?;
-        match next_by_type {
-            Ok(next) => next.try_into().ok(),
-            Err(_) => None,
-        }
-    }
-
-    /*
-    pub(crate) fn get_rsrc_info(&self) -> Result<RsrcInfo, BlorbError> {
-        let resource_type = self.stream.read_resource_type()?;
-        let size: usize = self.stream.read_chunk_size()?;
-
-        Ok(RsrcInfo {
-            resource_type,
-            size,
-        })
-    }
-    */
 
     pub(crate) fn read_next_chunk(&self) -> Result<RawBlorbChunk, BlorbError> {
         let blorb_type = self.stream.read_chunk_type()?;
