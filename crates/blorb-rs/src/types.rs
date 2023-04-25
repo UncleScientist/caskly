@@ -12,8 +12,14 @@ pub enum BlorbType {
     Ifrs,
     /// "RIdx" - a Resource Index chunk
     Ridx,
+
+    // VM executables
+    /// A Z-Code executable chunk
+    Zcod,
     /// A Glulx executable chunk
     Glul,
+
+    // Misc data
     /// Blorb file metadata
     Ifmd,
     /// A Fronispiece chunk
@@ -30,12 +36,16 @@ pub enum BlorbType {
     Text,
     /// A binary chunk of data
     Bina,
+
+    // Images
     /// A PNG image chunk
     Png,
     /// A JPeg image chunk
     Jpeg,
     /// A Rect placeholder picture chunk
     Rect,
+
+    // Sounds
     /// An MOD sound format chunk
     Mod,
     /// An Ogg Vorbis sound chunk
@@ -121,6 +131,7 @@ blorb_type_try_from!(
     Jpeg => "JPEG",
     Rect => "Rect",
     Glul => "GLUL",
+    Zcod => "ZCOD",
     Mod => "MOD ",
     Oggv => "OGGV",
     Song => "Song"
