@@ -31,9 +31,17 @@ impl BlorbStream {
         let blorb_type = self.read_chunk_type()?;
         let size = self.read_chunk_size()?;
 
+        // "FORM" type chunks are raw storage in the blorb file, so we need
+        // to return the whole thing instead of just the chunk's data
+        let start_pos = if blorb_type == BlorbType::Form {
+            offset
+        } else {
+            offset + 8
+        };
+
         Ok(RawBlorbChunk::new(
             blorb_type,
-            &(self.bytes[offset + 8..offset + 8 + size]),
+            &(self.bytes[start_pos..offset + 8 + size]),
         ))
     }
 
@@ -103,5 +111,30 @@ mod test {
         let stream = BlorbStream::new(vec![0, 0, 0, 0, 0, 0, 0, 0, 0]);
         let _ = stream.get_next_chunk(3);
         assert_eq!(*stream.cursor.borrow(), 4);
+    }
+
+    #[test]
+    fn non_form_types_just_return_the_data() {
+        let stream = BlorbStream::new(vec![
+            0x50, 0x4e, 0x47, 0x20, // "PNG "
+            0, 0, 0, 8, // chunk length
+            0x0a, 0x0b, 0x0c, 0x0d, 1, 2, 3, 4, // random data
+        ]); // random data
+        let chunk = stream.read_chunk().expect("could not decode chunk");
+        assert_eq!(BlorbType::Png, chunk.blorb_type);
+        assert_eq!(vec![0x0a, 0x0b, 0x0c, 0x0d, 1, 2, 3, 4], chunk.bytes);
+    }
+
+    #[test]
+    fn form_types_return_everything() {
+        let stream = BlorbStream::new(vec![
+            0x46, 0x4f, 0x52, 0x4d, // "FORM"
+            0, 0, 0, 8, // chunk length
+            0x49, 0x46, 0x5a, 0x53, // "IFZS"
+            1, 2, 3, 4,
+        ]); // random data
+        let chunk = stream.read_chunk().expect("Could not decode chunk");
+        assert_eq!(BlorbType::Form, chunk.blorb_type);
+        assert_eq!(stream.bytes, chunk.bytes);
     }
 }
