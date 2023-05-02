@@ -120,7 +120,17 @@ impl BlorbReader {
     }
 
     /// Get a text type data resource converted from UTF-8
-    // pub fn get_utf8_text_resource(&self, id: usize) {}
+    pub fn get_utf8_text_resource(&self, id: usize) -> Result<String, BlorbError> {
+        let offset = self
+            .look_up_resource(ResourceType::Data, id)
+            .ok_or(BlorbError::NonExistentResource(id))?;
+        self.stream.seek(offset);
+
+        let chunk = self.stream.read_chunk()?;
+        Ok(std::str::from_utf8(chunk.bytes)
+            .map_err(|_| BlorbError::ConversionFailed)?
+            .to_string())
+    }
 
     fn look_up_resource(&self, usage: ResourceType, id: usize) -> Option<usize> {
         for rsrc in &self.ridx {
