@@ -66,8 +66,7 @@ impl BlorbReader {
 
     pub(crate) fn find_chunk(&self, blorb_type: BlorbType) -> Result<RawBlorbChunk, BlorbError> {
         self.iter()
-            .filter(|chunk| Self::is_type(chunk, blorb_type))
-            .next()
+            .find(|chunk| Self::is_type(chunk, blorb_type))
             .ok_or(BlorbError::ChunkNotFound)?
     }
 

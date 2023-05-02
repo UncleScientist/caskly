@@ -229,7 +229,7 @@ impl<'a> TryFrom<&RawBlorbChunk<'a>> for BlorbChunk {
             BlorbType::Anno => Ok(Self::Annotation(bytes_to_string(bc.bytes)?)),
             BlorbType::Reln => Ok(Self::ReleaseNumber(bytes_to_u16(&bc.bytes[0..2])?)),
             BlorbType::Apal => {
-                if bc.bytes.len() == 0 {
+                if bc.bytes.is_empty() {
                     return Ok(Self::AdaptivePalette(Vec::new()));
                 }
 
