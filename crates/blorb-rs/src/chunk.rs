@@ -43,6 +43,9 @@ pub enum BlorbChunk {
         /// Starting PC value
         pc: [u8; 3],
     },
+
+    /// The release number of the resource file.
+    ReleaseNumber(u16),
 }
 
 /// A textual description of a visual or auditory resource
@@ -108,6 +111,7 @@ impl<'a> TryFrom<&RawBlorbChunk<'a>> for BlorbChunk {
             BlorbType::Auth => Ok(Self::Author(bytes_to_string(bc.bytes)?)),
             BlorbType::Copr => Ok(Self::Copyright(bytes_to_string(bc.bytes)?)),
             BlorbType::Anno => Ok(Self::Annotation(bytes_to_string(bc.bytes)?)),
+            BlorbType::Reln => Ok(Self::ReleaseNumber(bytes_to_u16(&bc.bytes[0..2])?)),
             BlorbType::Ifhd => {
                 if bc.bytes.len() != 13 {
                     return Err(BlorbError::ConversionFailed);

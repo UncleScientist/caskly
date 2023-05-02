@@ -38,6 +38,10 @@ pub enum BlorbType {
     Bina,
     /// An IF "header" identifier
     Ifhd,
+    /// The "Story Name" chunk
+    Snam,
+    /// Release Number
+    Reln,
 
     // Images
     /// A PNG image chunk
@@ -127,6 +131,8 @@ blorb_type_try_from!(
     Auth => "AUTH",
     Copr => "(c) ",
     Anno => "ANNO",
+    Snam => "SNam",
+    Reln => "RelN",
     Text => "TEXT",
     Bina => "BINA",
     Ifhd => "IFhd",
