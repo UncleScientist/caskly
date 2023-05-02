@@ -56,39 +56,38 @@ impl BlorbReader {
         Ok(Self { stream, ridx })
     }
 
+    fn is_type(chunk: &Result<RawBlorbChunk, BlorbError>, blorb_type: BlorbType) -> bool {
+        if let Ok(chunk) = chunk {
+            chunk.blorb_type == blorb_type
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn find_chunk(&self, blorb_type: BlorbType) -> Result<RawBlorbChunk, BlorbError> {
+        self.iter()
+            .filter(|chunk| Self::is_type(chunk, blorb_type))
+            .next()
+            .ok_or(BlorbError::ChunkNotFound)?
+    }
+
     /// Retrieve the image associated with the Frontispiece chunk
     pub fn get_frontispiece_image(&self) -> Option<RawBlorbChunk> {
-        for chunk in self.iter() {
-            match chunk {
-                Ok(chunk) => {
-                    let chunk: Option<BlorbChunk> = (&chunk).try_into().ok();
-                    if let Some(chunk) = chunk {
-                        if let BlorbChunk::Frontispiece(num) = chunk {
-                            return self.get_resource(ResourceType::Pict, num).ok();
-                        }
-                    }
-                }
-                Err(_) => return None,
-            }
+        let chunk = self.find_chunk(BlorbType::Fspc).ok()?;
+        if let BlorbChunk::Frontispiece(num) = (&chunk).try_into().ok()? {
+            return self.get_resource(ResourceType::Pict, num).ok();
         }
 
         None
     }
 
     /// Retrieve the game idenfier chunk
-    pub fn get_game_identifier(&self) -> Option<RawBlorbChunk> {
-        for chunk in self.iter() {
-            match chunk {
-                Ok(chunk) => {
-                    if chunk.blorb_type == BlorbType::Ifhd {
-                        return Some(chunk);
-                    }
-                }
-                Err(_) => return None,
-            }
+    pub fn get_game_identifier(&self) -> Option<BlorbChunk> {
+        if let Ok(chunk) = self.find_chunk(BlorbType::Ifhd) {
+            (&chunk).try_into().ok()
+        } else {
+            None
         }
-
-        None
     }
 
     /// Display a resource information entry
