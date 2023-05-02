@@ -101,14 +101,35 @@ impl BlorbReader {
         usage: ResourceType,
         id: usize,
     ) -> Result<RawBlorbChunk, BlorbError> {
-        for rsrc in &self.ridx {
-            if rsrc.id == id && rsrc.usage == usage {
-                let offset = rsrc.offset;
-                self.stream.seek(offset);
-                return Ok(self.stream.read_chunk()?.with_usage(rsrc.usage));
-            }
+        if let Some(offset) = self.look_up_resource(usage, id) {
+            self.stream.seek(offset);
+            return Ok(self.stream.read_chunk()?.with_usage(usage));
         }
         Err(BlorbError::NonExistentResource(id))
+    }
+
+    /// Get a text type data resource converted from Latin-1
+    pub fn get_latin1_text_resource(&self, id: usize) -> Result<String, BlorbError> {
+        let offset = self
+            .look_up_resource(ResourceType::Data, id)
+            .ok_or(BlorbError::NonExistentResource(id))?;
+        self.stream.seek(offset);
+
+        let chunk = self.stream.read_chunk()?;
+        Ok(chunk.bytes.iter().map(|&ch| ch as char).collect())
+    }
+
+    /// Get a text type data resource converted from UTF-8
+    // pub fn get_utf8_text_resource(&self, id: usize) {}
+
+    fn look_up_resource(&self, usage: ResourceType, id: usize) -> Option<usize> {
+        for rsrc in &self.ridx {
+            if rsrc.id == id && rsrc.usage == usage {
+                return Some(rsrc.offset);
+            }
+        }
+
+        None
     }
 
     pub(crate) fn read_next_chunk(&self) -> Result<RawBlorbChunk, BlorbError> {

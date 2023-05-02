@@ -6,7 +6,7 @@ use crate::error::BlorbError;
 /// The IFF types that exist for blorb files
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum BlorbType {
-    /// "FORM" - specifies that the file is an IFF type file
+    /// "FORM" - Can be an AIFF form or a binary "Data" Resource Type
     Form,
     /// "IFRS" - the FORM type for blorb files
     Ifrs,
