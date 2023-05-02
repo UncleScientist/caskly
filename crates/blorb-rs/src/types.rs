@@ -42,6 +42,8 @@ pub enum BlorbType {
     Snam,
     /// Release Number
     Reln,
+    /// A resolution chunk
+    Reso,
 
     // Images
     /// A PNG image chunk
@@ -133,6 +135,7 @@ blorb_type_try_from!(
     Anno => "ANNO",
     Snam => "SNam",
     Reln => "RelN",
+    Reso => "Reso",
     Text => "TEXT",
     Bina => "BINA",
     Ifhd => "IFhd",

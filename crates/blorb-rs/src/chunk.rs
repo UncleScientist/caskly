@@ -46,6 +46,54 @@ pub enum BlorbChunk {
 
     /// The release number of the resource file.
     ReleaseNumber(u16),
+
+    /// A resolution chunk for scaling images
+    Resolution {
+        /// Standard window width and height
+        standard: WindowSize,
+        /// Minimum window width and height
+        minimum: WindowSize,
+        /// Maximum window width and height
+        maximum: WindowSize,
+        /// Image resolution entries
+        entries: Vec<ResolutionEntry>,
+    },
+}
+
+/// The size of a window for the resolution chunk
+#[derive(Debug, PartialEq)]
+pub struct WindowSize {
+    width: usize,
+    height: usize,
+}
+
+/// A resolution definition for an image resource
+#[derive(Debug, PartialEq)]
+pub struct ResolutionEntry {
+    /// image resource number
+    number: usize,
+    /// Standard ratio numerator and denominator
+    standard: ResolutionRatio,
+    /// Minimum ratio numerator and denominator
+    minimum: ResolutionRatio,
+    /// Maximum ratio numerator and denominator
+    maximum: ResolutionRatio,
+}
+
+/// A resolution ratio
+#[derive(Debug, PartialEq)]
+pub struct ResolutionRatio {
+    /// numerator of the ratio
+    numerator: usize,
+    /// denominator of the ratio
+    denominator: usize,
+}
+
+impl ResolutionRatio {
+    /// Convert the ratio to a real number
+    pub fn ratio(&self) -> f64 {
+        self.numerator as f64 / self.denominator as f64
+    }
 }
 
 /// A textual description of a visual or auditory resource
@@ -148,6 +196,74 @@ impl<'a> TryFrom<&RawBlorbChunk<'a>> for BlorbChunk {
                     offset += 12 + len;
                 }
                 Ok(Self::ResourceDescription(entries))
+            }
+            BlorbType::Reso => {
+                let entry_count = bc.bytes.len() - 24;
+                if entry_count % 28 != 0 {
+                    return Err(BlorbError::ConversionFailed);
+                }
+
+                let entry_count = entry_count / 28;
+
+                let px = bytes_to_usize(&bc.bytes[0..4])?;
+                let py = bytes_to_usize(&bc.bytes[4..8])?;
+                let standard = WindowSize {
+                    width: px,
+                    height: py,
+                };
+
+                let minx = bytes_to_usize(&bc.bytes[8..12])?;
+                let miny = bytes_to_usize(&bc.bytes[12..16])?;
+                let minimum = WindowSize {
+                    width: minx,
+                    height: miny,
+                };
+
+                let maxx = bytes_to_usize(&bc.bytes[16..20])?;
+                let maxy = bytes_to_usize(&bc.bytes[20..24])?;
+                let maximum = WindowSize {
+                    width: maxx,
+                    height: maxy,
+                };
+
+                let mut entries = Vec::new();
+                let mut offset = 4;
+                for _ in 0..entry_count {
+                    let number = bytes_to_usize(&bc.bytes[offset..offset + 4])?;
+                    let ratnum = bytes_to_usize(&bc.bytes[offset + 4..offset + 8])?;
+                    let ratden = bytes_to_usize(&bc.bytes[offset + 8..offset + 12])?;
+                    let standard = ResolutionRatio {
+                        numerator: ratnum,
+                        denominator: ratden,
+                    };
+
+                    let minnum = bytes_to_usize(&bc.bytes[offset + 12..offset + 16])?;
+                    let minden = bytes_to_usize(&bc.bytes[offset + 16..offset + 20])?;
+                    let minimum = ResolutionRatio {
+                        numerator: minnum,
+                        denominator: minden,
+                    };
+
+                    let maxnum = bytes_to_usize(&bc.bytes[offset + 20..offset + 24])?;
+                    let maxden = bytes_to_usize(&bc.bytes[offset + 24..offset + 28])?;
+                    let maximum = ResolutionRatio {
+                        numerator: maxnum,
+                        denominator: maxden,
+                    };
+                    entries.push(ResolutionEntry {
+                        number,
+                        standard,
+                        minimum,
+                        maximum,
+                    });
+                    offset += 28;
+                }
+                Ok(Self::Resolution {
+                    standard,
+                    minimum,
+                    maximum,
+                    entries,
+                })
             }
             _ => Err(BlorbError::ConversionFailed),
         }
