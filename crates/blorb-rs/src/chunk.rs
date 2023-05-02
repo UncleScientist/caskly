@@ -83,6 +83,54 @@ pub struct ResolutionEntry {
     maximum: ResolutionRatio,
 }
 
+/// Ratio information for resolution chunk data
+pub enum PictRatio {
+    /// There is no minimum size -- can go to 0
+    NoMinimum,
+
+    /// There is no maximum size -- can go to infinity
+    NoMaximum,
+
+    /// The resolution data in the resource chunk is invalid
+    Invalid,
+
+    /// The ratio of the resolution data
+    Ratio(f64),
+}
+
+impl ResolutionEntry {
+    /// Get the minimum allowed ratio for this image
+    pub fn get_min(&self) -> PictRatio {
+        if self.minimum.numerator == 0 && self.minimum.denominator == 0 {
+            PictRatio::NoMinimum
+        } else if self.minimum.denominator == 0 {
+            PictRatio::Invalid
+        } else {
+            PictRatio::Ratio(self.minimum.numerator as f64 / self.minimum.denominator as f64)
+        }
+    }
+
+    /// Get the maximum allowed ratio for this image
+    pub fn get_max(&self) -> PictRatio {
+        if self.maximum.numerator == 0 && self.maximum.denominator == 0 {
+            PictRatio::NoMaximum
+        } else if self.maximum.denominator == 0 {
+            PictRatio::Invalid
+        } else {
+            PictRatio::Ratio(self.maximum.numerator as f64 / self.maximum.denominator as f64)
+        }
+    }
+
+    /// Get the "standard" default ratio for this image
+    pub fn get(&self) -> PictRatio {
+        if self.standard.denominator == 0 {
+            PictRatio::Invalid
+        } else {
+            PictRatio::Ratio(self.standard.numerator as f64 / self.standard.denominator as f64)
+        }
+    }
+}
+
 /// A resolution ratio
 #[derive(Debug, PartialEq)]
 pub struct ResolutionRatio {
@@ -149,6 +197,23 @@ impl<'a> Debug for RawBlorbChunk<'a> {
             write!(f, " ] }}")?;
         }
         Ok(())
+    }
+}
+
+impl BlorbChunk {
+    /// Calculate the elbow room factor (ERF) as defined in the blorb spec.
+    /// `wx` is the actual window width, and `wy` is the actual window height
+    pub fn elbow_room(&self, wx: usize, wy: usize) -> Result<f64, BlorbError> {
+        if let Self::Resolution { standard, .. } = self {
+            if standard.width == 0 || standard.height == 0 {
+                return Err(BlorbError::ConversionFailed);
+            }
+            let erf_width = wx as f64 / standard.width as f64;
+            let erf_height = wy as f64 / standard.height as f64;
+            Ok(erf_width.min(erf_height))
+        } else {
+            Err(BlorbError::ConversionFailed)
+        }
     }
 }
 
