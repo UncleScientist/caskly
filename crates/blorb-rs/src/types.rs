@@ -44,6 +44,8 @@ pub enum BlorbType {
     Reln,
     /// A resolution chunk
     Reso,
+    /// An adaptive palette chunk
+    Apal,
 
     // Images
     /// A PNG image chunk
@@ -136,6 +138,7 @@ blorb_type_try_from!(
     Snam => "SNam",
     Reln => "RelN",
     Reso => "Reso",
+    Apal => "APal",
     Text => "TEXT",
     Bina => "BINA",
     Ifhd => "IFhd",

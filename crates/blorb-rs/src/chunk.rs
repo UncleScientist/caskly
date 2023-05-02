@@ -58,6 +58,9 @@ pub enum BlorbChunk {
         /// Image resolution entries
         entries: Vec<ResolutionEntry>,
     },
+
+    /// A list of picture resources which have adaptive palette colors
+    AdaptivePalette(Vec<usize>),
 }
 
 /// The size of a window for the resolution chunk
@@ -160,6 +163,22 @@ impl<'a> TryFrom<&RawBlorbChunk<'a>> for BlorbChunk {
             BlorbType::Copr => Ok(Self::Copyright(bytes_to_string(bc.bytes)?)),
             BlorbType::Anno => Ok(Self::Annotation(bytes_to_string(bc.bytes)?)),
             BlorbType::Reln => Ok(Self::ReleaseNumber(bytes_to_u16(&bc.bytes[0..2])?)),
+            BlorbType::Apal => {
+                if bc.bytes.len() == 0 {
+                    return Ok(Self::AdaptivePalette(Vec::new()));
+                }
+
+                let num = bytes_to_usize(&bc.bytes[0..4])?;
+                if num % 4 != 0 {
+                    return Err(BlorbError::ConversionFailed);
+                }
+                let mut entries = Vec::new();
+                for i in 0..num % 4 {
+                    let start = 4 + i * 4;
+                    entries.push(bytes_to_usize(&bc.bytes[start..start + 4])?);
+                }
+                Ok(Self::AdaptivePalette(entries))
+            }
             BlorbType::Ifhd => {
                 if bc.bytes.len() != 13 {
                     return Err(BlorbError::ConversionFailed);
