@@ -1,3 +1,4 @@
+use crate::gestalt::OutputType;
 use crate::gestalt::*;
 use crate::keycode::Keycode;
 
@@ -20,6 +21,14 @@ impl Glk {
                 GestaltResult::Accepted(ch as u32 >= 32 && (ch as u32) < 127)
             }
             Gestalt::CharInput(ch) => GestaltResult::Accepted(Keycode::Return == ch),
+            Gestalt::CharOutput(Keycode::Basic(ch)) => {
+                if (ch as u32) >= 32 && (ch as u32) < 127 {
+                    GestaltResult::CharOutput(OutputType::ExactPrint)
+                } else {
+                    GestaltResult::CharOutput(OutputType::CannotPrint(1))
+                }
+            }
+            Gestalt::CharOutput(_) => GestaltResult::CharOutput(OutputType::CannotPrint(1)),
         }
     }
 }
@@ -56,6 +65,24 @@ mod test {
         assert_eq!(
             GestaltResult::Accepted(true),
             glk.gestalt(Gestalt::CharInput(Keycode::Return))
+        );
+    }
+
+    #[test]
+    fn can_output_normal_characters() {
+        let glk = Glk::new();
+        assert_eq!(
+            GestaltResult::CharOutput(OutputType::ExactPrint),
+            glk.gestalt(Gestalt::CharOutput(Keycode::Basic('f')))
+        );
+    }
+
+    #[test]
+    fn cannot_print_invalid_characters() {
+        let glk = Glk::new();
+        assert_eq!(
+            GestaltResult::CharOutput(OutputType::CannotPrint(1)),
+            glk.gestalt(Gestalt::CharOutput(Keycode::Basic('\t')))
         );
     }
 }
