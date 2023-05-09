@@ -1,4 +1,4 @@
-use crate::keycode::Keycode;
+use crate::{keycode::Keycode, windows::WindowType};
 
 /// The gestalt system
 #[derive(PartialEq, Debug)]
@@ -14,6 +14,60 @@ pub enum Gestalt {
 
     /// Can a given character be printed by the glk library?
     CharOutput(Keycode),
+
+    /// Can the glk library handle mouse input
+    MouseInput,
+
+    /// Does the glk library support timers
+    Timer,
+
+    /// Can the glk library display graphics
+    Graphics,
+
+    /// Can the glk's library graphics routines handle transparency?
+    GraphicsTransparency,
+
+    /// Can the glk library return character input events from graphics windows
+    GraphicsCharInput,
+
+    /// Can the glk library draw images in a window of a given type
+    DrawImage(WindowType),
+
+    /// Can we handle unicode
+    Unicode,
+
+    /// Can the library do unicode normalization
+    UnicodeNorm,
+
+    /// Can play sound with the pre-0.7.3 library functions
+    Sound,
+
+    /// Can set sound volume
+    SoundVolume,
+
+    /// Can send events when sound stops playing
+    SoundNotify,
+
+    /// Can the library handle "MOD" style resource sounds
+    SoundMusic,
+
+    /// Can the library handle 0.7.3 and later sound library functions
+    Sound2,
+
+    /// Can the library suppress the line input being echoed to the window
+    LineInputEcho,
+
+    /// Can the VM tell the library what line terminator characters there are
+    LineTerminators,
+
+    /// Is the specified character able to be used as a line terminator
+    LineTerminatorKey(Keycode),
+
+    /// Can we retrieve the date and time from the glk library
+    DateTime,
+
+    /// Can we open and read resources streams
+    ResourceStream,
 }
 
 /// The responses for different gestalt queries

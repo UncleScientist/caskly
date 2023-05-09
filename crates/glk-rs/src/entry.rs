@@ -29,6 +29,8 @@ impl Glk {
                 }
             }
             Gestalt::CharOutput(_) => GestaltResult::CharOutput(OutputType::CannotPrint(1)),
+            Gestalt::Unicode | Gestalt::UnicodeNorm => GestaltResult::Accepted(true),
+            _ => GestaltResult::Accepted(false),
         }
     }
 }
