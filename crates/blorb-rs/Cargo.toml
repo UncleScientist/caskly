@@ -2,6 +2,11 @@
 name = "blorb"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+description = "Read and interpret blorb files. See https://www.eblong.com/zarf/blorb/blorb.html"
+homepage = "https://github.com/UncleScientist/caskly"
+repository = "https://github.com/UncleScientist/caskly"
+readme = "README.md"
 
 [dependencies]
 anyhow = "1.0.70"
