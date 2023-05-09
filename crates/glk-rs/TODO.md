@@ -1,0 +1,2 @@
+- add different "back ends" (crossterm, egui, iced, simple)
+- support wasm & native text
