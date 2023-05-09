@@ -8,3 +8,6 @@ pub use entry::Glk;
 
 /// The gestalt subsystem
 pub mod gestalt;
+
+/// Keycode translation table
+pub mod keycode;
