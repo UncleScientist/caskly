@@ -1,10 +1,13 @@
 use crate::gestalt::OutputType;
 use crate::gestalt::*;
 use crate::keycode::Keycode;
+use crate::windows::{BorderStyle, SplitDirection, SplitMethod, WinID, WindowType};
 
 /// The GLK object. TODO: Insert basic usage here
 #[derive(Default)]
-pub struct Glk;
+pub struct Glk {
+    windows: Vec<WinID>,
+}
 
 impl Glk {
     /// Create a new glk interface
@@ -78,6 +81,50 @@ impl Glk {
         }
 
         result
+    }
+
+    /// create a new window
+    pub fn window_open(
+        &mut self,
+        split: Option<WinID>,
+        split_dir: SplitDirection,
+        split_amt: SplitMethod,
+        border: BorderStyle,
+        wintype: WindowType,
+        rock: u32,
+    ) -> Option<WinID> {
+        if !self.windows.is_empty() || split.is_some() {
+            return None;
+        }
+
+        if wintype != WindowType::TextBuffer {
+            return None;
+        }
+
+        let new_win = WinID::new(split_dir, split_amt, border, wintype, rock);
+        self.windows.push(new_win.get_clone());
+
+        Some(new_win)
+    }
+
+    /// close the given window and all of its children
+    pub fn window_close(&mut self, _win: WinID) {
+        todo!();
+    }
+
+    /// get the rock value for a given window
+    pub fn window_get_rock(win: WinID) -> u32 {
+        win.get_rock()
+    }
+
+    /// get the parent for this window
+    pub fn window_get_parent(win: WinID) -> Option<WinID> {
+        win.parent()
+    }
+
+    /// get the sibling of this window
+    pub fn window_get_sibling(win: WinID) -> Option<WinID> {
+        win.sibling()
     }
 }
 
