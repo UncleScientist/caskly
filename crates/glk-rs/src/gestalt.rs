@@ -77,7 +77,7 @@ pub enum GestaltResult {
     Version(u32),
 
     /// Is the requested gestalt entry handled by the Glk library?
-    Accepted(bool),
+    CanAccept(bool),
 
     /// Method by which a character can be printed
     CharOutput(OutputType),

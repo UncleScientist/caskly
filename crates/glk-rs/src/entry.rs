@@ -16,11 +16,13 @@ impl Glk {
     pub fn gestalt(&self, gestalt: Gestalt) -> GestaltResult {
         match gestalt {
             Gestalt::Version => GestaltResult::Version(0x00000705),
-            Gestalt::LineInput(ch) => GestaltResult::Accepted(ch as u32 >= 32 && (ch as u32) < 127),
-            Gestalt::CharInput(Keycode::Basic(ch)) => {
-                GestaltResult::Accepted(ch as u32 >= 32 && (ch as u32) < 127)
+            Gestalt::LineInput(ch) => {
+                GestaltResult::CanAccept(ch as u32 >= 32 && (ch as u32) < 127)
             }
-            Gestalt::CharInput(ch) => GestaltResult::Accepted(Keycode::Return == ch),
+            Gestalt::CharInput(Keycode::Basic(ch)) => {
+                GestaltResult::CanAccept(ch as u32 >= 32 && (ch as u32) < 127)
+            }
+            Gestalt::CharInput(ch) => GestaltResult::CanAccept(Keycode::Return == ch),
             Gestalt::CharOutput(Keycode::Basic(ch)) => {
                 if (ch as u32) >= 32 && (ch as u32) < 127 {
                     GestaltResult::CharOutput(OutputType::ExactPrint)
@@ -29,9 +31,81 @@ impl Glk {
                 }
             }
             Gestalt::CharOutput(_) => GestaltResult::CharOutput(OutputType::CannotPrint(1)),
-            Gestalt::Unicode | Gestalt::UnicodeNorm => GestaltResult::Accepted(true),
-            _ => GestaltResult::Accepted(false),
+            Gestalt::Unicode | Gestalt::UnicodeNorm => GestaltResult::CanAccept(true),
+            _ => GestaltResult::CanAccept(false),
         }
+    }
+
+    /// Convert a latin-1 / unicode character to lowercase
+    pub fn char_to_lower(ch: impl ToChar) -> char {
+        let ch = ch.to_char();
+        ch.to_lowercase().next().unwrap()
+    }
+
+    /// Convert a latin-1 / unicode character to uppercase
+    pub fn char_to_upper(ch: impl ToChar) -> char {
+        let ch = ch.to_char();
+        ch.to_uppercase().next().unwrap()
+    }
+
+    /// convert a string to upper case
+    pub fn buffer_to_upper_case_uni(s: &str) -> String {
+        s.to_uppercase()
+    }
+
+    /// convert a string to lower case
+    pub fn buffer_to_lower_case_uni(s: &str) -> String {
+        s.to_lowercase()
+    }
+
+    /// convert a string to title case
+    pub fn buffer_to_title_case_uni(s: &str, style: TitleCaseStyle) -> String {
+        let mut result = String::new();
+
+        if s.is_empty() {
+            return result;
+        }
+
+        let mut iter = s.chars();
+
+        let first_char = iter.next().unwrap();
+        result.push(first_char.to_uppercase().next().unwrap());
+
+        if style == TitleCaseStyle::UppercaseFirst {
+            result.extend(iter);
+        } else {
+            result.extend(iter.map(|x| x.to_lowercase().next().unwrap()));
+        }
+
+        result
+    }
+}
+
+/// determines the style of title case conversions
+#[derive(Debug, PartialEq)]
+pub enum TitleCaseStyle {
+    /// Convert the first character to uppercase, and leave the remaining characters alone
+    UppercaseFirst,
+
+    /// Convert the first character to uppercase, and convert the remaining to lowercase
+    LowercaseRest,
+}
+
+/// Provide a conversion function for u8 (Latin-1) values, and char (unicode) values
+pub trait ToChar {
+    /// convert value to char
+    fn to_char(&self) -> char;
+}
+
+impl ToChar for u8 {
+    fn to_char(&self) -> char {
+        *self as char
+    }
+}
+
+impl ToChar for char {
+    fn to_char(&self) -> char {
+        *self
     }
 }
 
@@ -56,7 +130,7 @@ mod test {
     fn can_handle_characters() {
         let glk = Glk::new();
         assert_eq!(
-            GestaltResult::Accepted(true),
+            GestaltResult::CanAccept(true),
             glk.gestalt(Gestalt::CharInput(Keycode::Basic('a')))
         );
     }
@@ -65,7 +139,7 @@ mod test {
     fn can_handle_return_key() {
         let glk = Glk::new();
         assert_eq!(
-            GestaltResult::Accepted(true),
+            GestaltResult::CanAccept(true),
             glk.gestalt(Gestalt::CharInput(Keycode::Return))
         );
     }
@@ -85,6 +159,61 @@ mod test {
         assert_eq!(
             GestaltResult::CharOutput(OutputType::CannotPrint(1)),
             glk.gestalt(Gestalt::CharOutput(Keycode::Basic('\t')))
+        );
+    }
+
+    #[test]
+    fn can_convert_to_uppercase() {
+        assert_eq!('A', Glk::char_to_upper('a'));
+    }
+
+    #[test]
+    fn can_convert_to_lowercase() {
+        assert_eq!('a', Glk::char_to_lower('A'));
+    }
+
+    #[test]
+    fn can_do_non_english_chars() {
+        assert_eq!('ü', Glk::char_to_lower('Ü'));
+    }
+
+    #[test]
+    fn convert_string_to_uppercase() {
+        assert_eq!(
+            "ABCDEF".to_string(),
+            Glk::buffer_to_upper_case_uni("AbcDef")
+        );
+    }
+
+    #[test]
+    fn convert_string_to_lowercase() {
+        assert_eq!(
+            "abcdef".to_string(),
+            Glk::buffer_to_lower_case_uni("AbcDef")
+        );
+    }
+
+    #[test]
+    fn convert_string_to_title_case() {
+        assert_eq!(
+            "AbcDef",
+            Glk::buffer_to_title_case_uni("abcDef", TitleCaseStyle::UppercaseFirst)
+        );
+    }
+
+    #[test]
+    fn convert_string_to_title_case_with_lowercase() {
+        assert_eq!(
+            "Abcdef",
+            Glk::buffer_to_title_case_uni("abcDef", TitleCaseStyle::LowercaseRest)
+        );
+    }
+
+    #[test]
+    fn conversion_of_title_case_handles_empty_string() {
+        assert_eq!(
+            "",
+            Glk::buffer_to_title_case_uni("", TitleCaseStyle::LowercaseRest)
         );
     }
 }
