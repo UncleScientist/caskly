@@ -241,8 +241,9 @@ mod test {
             border: false,
         };
         let split = root_win.split(Some(method), WindowType::TextBuffer, 65);
-        let parent = split.get_parent();
-        assert_eq!(split.get_parent().unwrap().get_rock(), 0);
+
+        let parent = split.get_parent().unwrap();
+        assert_eq!(parent.get_rock(), 0);
 
         let sibling = split.get_sibling().unwrap();
         assert_eq!(sibling.get_rock(), 32);
