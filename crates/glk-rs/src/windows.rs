@@ -138,6 +138,19 @@ impl WindowRef {
             winref: self.winref.borrow().parent.as_ref()?.upgrade()?,
         })
     }
+
+    fn get_sibling(&self) -> Option<WindowRef> {
+        let parent = self.winref.borrow().parent.as_ref()?.upgrade()?;
+        if parent.borrow().wintype == WindowType::Root {
+            return None;
+        }
+
+        if Rc::ptr_eq(&parent.borrow().child1.as_ref()?.winref, &self.winref) {
+            Some(parent.borrow().child2.as_ref()?.make_clone())
+        } else {
+            Some(parent.borrow().child1.as_ref()?.make_clone())
+        }
+    }
 }
 
 /// A glk window
@@ -230,5 +243,11 @@ mod test {
         let split = root_win.split(Some(method), WindowType::TextBuffer, 65);
         let parent = split.get_parent();
         assert_eq!(split.get_parent().unwrap().get_rock(), 0);
+
+        let sibling = split.get_sibling().unwrap();
+        assert_eq!(sibling.get_rock(), 32);
+
+        let sibling = root_win.get_sibling().unwrap();
+        assert_eq!(sibling.get_rock(), 65);
     }
 }
