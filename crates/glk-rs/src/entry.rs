@@ -107,7 +107,7 @@ impl Glk {
             return None;
         }
 
-        let new_win = WindowRef::open(&None, None, wintype, rock);
+        let new_win = WindowRef::init();
         self.windows.push(new_win);
 
         self.windows.last()

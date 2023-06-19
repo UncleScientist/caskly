@@ -2,22 +2,18 @@ use crate::GlkRock;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
+#[derive(Debug)]
 pub struct WindowRef {
     winref: Rc<RefCell<Window>>,
 }
 
 impl WindowRef {
-    /// Create a new window
-    pub fn open(
-        split: &Option<WindowRef>,
-        method: Option<WindowSplitMethod>,
-        wintype: WindowType,
-        rock: GlkRock,
-    ) -> WindowRef {
+    /// Set up windows subsystem
+    pub fn init() -> WindowRef {
         WindowRef {
             winref: Rc::new(RefCell::new(Window {
-                wintype,
-                rock,
+                wintype: WindowType::Root,
+                rock: 0,
                 parent: None,
                 child1: None,
                 child2: None,
@@ -25,20 +21,107 @@ impl WindowRef {
         }
     }
 
+    /// Create a new window
+    pub fn create_root(&self, wintype: WindowType, rock: GlkRock) -> WindowRef {
+        assert!(self.winref.borrow().wintype == WindowType::Root);
+        let root_win = WindowRef {
+            winref: Rc::new(RefCell::new(Window {
+                wintype,
+                rock,
+                parent: None,
+                child1: None,
+                child2: None,
+            })),
+        };
+        root_win
+            .winref
+            .borrow_mut()
+            .parent
+            .replace(Rc::downgrade(&self.winref));
+        self.winref
+            .borrow_mut()
+            .child1
+            .replace(root_win.make_clone());
+        root_win
+    }
+
+    // before:                after:
+    //     W                     P
+    //                          / \
+    //                         W   N
+    /// Split an existing window. Creates a pair window which becomes the
+    /// parent of the two windows. The original parent of the split window
+    /// becomes the parent of the pair window, and the window being split
+    /// becomes the sibling of the new window being created.
     pub fn split(
         &self,
         method: Option<WindowSplitMethod>,
         wintype: WindowType,
         rock: GlkRock,
     ) -> WindowRef {
-        WindowRef {
+        if self.winref.borrow().wintype == WindowType::Root {
+            let child = WindowRef {
+                winref: Rc::new(RefCell::new(Window {
+                    wintype,
+                    rock,
+                    parent: None,
+                    child1: None,
+                    child2: None,
+                })),
+            };
+            self.winref.borrow_mut().child1.replace(child.make_clone());
+            return child;
+        }
+
+        let new_win = WindowRef {
             winref: Rc::new(RefCell::new(Window {
                 wintype,
                 rock,
-                parent: Some(Rc::downgrade(&self.winref)),
+                parent: None,
                 child1: None,
                 child2: None,
             })),
+        };
+        let pair_win = WindowRef {
+            winref: Rc::new(RefCell::new(Window {
+                wintype: WindowType::Pair,
+                rock: 0,
+                parent: None,
+                child1: Some(self.make_clone()),
+                child2: Some(new_win.make_clone()),
+            })),
+        };
+        if let Some(old_parent) = self
+            .winref
+            .borrow_mut()
+            .parent
+            .replace(Rc::downgrade(&pair_win.winref))
+        {
+            pair_win
+                .winref
+                .borrow_mut()
+                .parent
+                .replace(old_parent.clone());
+            old_parent
+                .upgrade()
+                .unwrap()
+                .borrow_mut()
+                .child1
+                .replace(pair_win.make_clone());
+        } else {
+            panic!("missing root window");
+        }
+        new_win
+            .winref
+            .borrow_mut()
+            .parent
+            .replace(Rc::downgrade(&pair_win.winref));
+        new_win
+    }
+
+    fn make_clone(&self) -> WindowRef {
+        WindowRef {
+            winref: Rc::clone(&self.winref),
         }
     }
 
@@ -58,6 +141,7 @@ impl WindowRef {
 }
 
 /// A glk window
+#[derive(Debug)]
 pub struct Window {
     wintype: WindowType,
     rock: GlkRock,
@@ -115,6 +199,9 @@ pub enum WindowType {
 
     /// A pair window (internal to the library)
     Pair,
+
+    /// Topmost window of the tree
+    Root,
 }
 
 impl Window {}
@@ -125,13 +212,15 @@ mod test {
 
     #[test]
     fn can_create_window() {
-        let win = WindowRef::open(&None, None, WindowType::TextBuffer, 0);
+        let winsys = WindowRef::init();
+        let win = winsys.create_root(WindowType::TextBuffer, 32);
         assert_eq!(win.get_type(), WindowType::TextBuffer);
     }
 
     #[test]
     fn can_split_window() {
-        let root_win = WindowRef::open(&None, None, WindowType::TextBuffer, 32);
+        let winsys = WindowRef::init();
+        let root_win = winsys.create_root(WindowType::TextBuffer, 32);
 
         let method = WindowSplitMethod {
             position: WindowSplitPosition::Above,
@@ -139,6 +228,7 @@ mod test {
             border: false,
         };
         let split = root_win.split(Some(method), WindowType::TextBuffer, 65);
-        assert_eq!(split.get_parent().unwrap().get_rock(), root_win.get_rock());
+        let parent = split.get_parent();
+        assert_eq!(split.get_parent().unwrap().get_rock(), 0);
     }
 }
