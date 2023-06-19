@@ -1,4 +1,4 @@
-use crate::{keycode::Keycode, windows::WindowType};
+use crate::keycode::Keycode; // , windows::WindowType};
 
 /// The gestalt system
 #[derive(PartialEq, Debug)]
@@ -30,9 +30,10 @@ pub enum Gestalt {
     /// Can the glk library return character input events from graphics windows
     GraphicsCharInput,
 
+    /*
     /// Can the glk library draw images in a window of a given type
     DrawImage(WindowType),
-
+    */
     /// Can we handle unicode
     Unicode,
 

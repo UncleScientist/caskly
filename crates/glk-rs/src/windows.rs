@@ -1,132 +1,144 @@
-use std::{cell::RefCell, rc::Rc};
+use crate::GlkRock;
+use std::cell::RefCell;
+use std::rc::{Rc, Weak};
 
-/// An opaque window ID type
-pub struct WinID {
-    id: Rc<RefCell<Window>>,
+pub struct WindowRef {
+    winref: Rc<RefCell<Window>>,
 }
 
-/// A window in glk
-pub(crate) struct Window {
-    /// the parent of this window
-    parent: Option<WinID>,
-
-    /// first child of this window
-    child1: Option<WinID>,
-
-    /// second child of this window
-    child2: Option<WinID>,
-
-    /// direction to split window
-    split_dir: SplitDirection,
-
-    /// method to determine size of new window
-    split_amt: SplitMethod,
-
-    /// style hint for the border
-    border: BorderStyle,
-
-    /// type of window being created
-    wintype: WindowType,
-
-    /// The rock defined by the application
-    rock: u32,
-}
-
-impl WinID {
-    pub(crate) fn new(
-        split_dir: SplitDirection,
-        split_amt: SplitMethod,
-        border: BorderStyle,
+impl WindowRef {
+    /// Create a new window
+    pub fn open(
+        split: &Option<WindowRef>,
+        method: Option<WindowSplitMethod>,
         wintype: WindowType,
-        rock: u32,
-    ) -> Self {
-        let win = Window {
-            parent: None,
-            child1: None,
-            child2: None,
-            split_dir,
-            split_amt,
-            border,
-            wintype,
-            rock,
-        };
-
-        Self {
-            id: Rc::new(RefCell::new(win)),
+        rock: GlkRock,
+    ) -> WindowRef {
+        WindowRef {
+            winref: Rc::new(RefCell::new(Window {
+                wintype,
+                rock,
+                parent: None,
+                child1: None,
+                child2: None,
+            })),
         }
     }
 
-    pub(crate) fn get_clone(&self) -> Self {
-        Self {
-            id: Rc::clone(&self.id),
+    pub fn split(
+        &self,
+        method: Option<WindowSplitMethod>,
+        wintype: WindowType,
+        rock: GlkRock,
+    ) -> WindowRef {
+        WindowRef {
+            winref: Rc::new(RefCell::new(Window {
+                wintype,
+                rock,
+                parent: Some(Rc::downgrade(&self.winref)),
+                child1: None,
+                child2: None,
+            })),
         }
     }
 
-    /// get the rock value for this window
-    pub(crate) fn get_rock(&self) -> u32 {
-        self.id.borrow().rock
+    fn get_type(&self) -> WindowType {
+        self.winref.borrow().wintype
     }
 
-    pub(crate) fn parent(&self) -> Option<Self> {
-        Some(Self {
-            id: Rc::clone(&self.id.borrow().parent.as_ref()?.id),
+    fn get_rock(&self) -> GlkRock {
+        self.winref.borrow().rock
+    }
+
+    fn get_parent(&self) -> Option<WindowRef> {
+        Some(WindowRef {
+            winref: self.winref.borrow().parent.as_ref()?.upgrade()?,
         })
     }
-
-    pub(crate) fn sibling(&self) -> Option<WinID> {
-        let parent = Rc::clone(&self.id.borrow().parent.as_ref()?.id);
-        let c1 = Rc::clone(&parent.borrow().child1.as_ref()?.id);
-        let c2 = Rc::clone(&parent.borrow().child2.as_ref()?.id);
-
-        if Rc::ptr_eq(&c1, &self.id) {
-            Some(Self { id: c1 })
-        } else {
-            Some(Self { id: c2 })
-        }
-    }
 }
 
-/// Types of windows
-#[derive(Debug, PartialEq)]
-pub enum WindowType {
-    /// a text buffer window -- can stream output, and accept line input
-    TextBuffer,
-
-    /// A text grid window -- can draw characters at arbitrary x/y coordinates
-    TextGrid,
-
-    /// Can display graphics
-    Graphics,
-
-    /// A basic window with no input or output facility
-    Blank,
-
-    /// A "pair" window (used only internally by glk)
-    Pair,
+/// A glk window
+pub struct Window {
+    wintype: WindowType,
+    rock: GlkRock,
+    parent: Option<Weak<RefCell<Window>>>,
+    child1: Option<WindowRef>,
+    child2: Option<WindowRef>,
 }
 
-/// Direction to split a window
-#[derive(Debug, PartialEq)]
-pub enum SplitDirection {
-    /// the new window appears Above the old window
+pub struct WindowSplitMethod {
+    /// Location of new window in relation to the existing window
+    position: WindowSplitPosition,
+
+    /// What the new window should look like compared to the existing one
+    amount: WindowSplitAmount,
+
+    /// Does it have a border?
+    border: bool,
+}
+
+pub enum WindowSplitPosition {
+    /// New window should be above the existing window
     Above,
-    /// the new window appears Below the old window
+
+    /// New window should be below the existing window
     Below,
-    /// the new window appears to the Left the old window
+
+    /// New window should be to the left of the existing window
     Left,
-    /// the new window appears to the Right the old window
+
+    /// New window should be to the right of the existing window
     Right,
 }
 
-/// The amount of space that is given to the new window
-#[derive(Debug, PartialEq)]
-pub enum SplitMethod {
-    /// create a window with a width or height value given in characters
-    Fixed(u32),
+pub enum WindowSplitAmount {
+    /// New window should have a fixed number of lines/columns
+    Fixed(i32),
 
-    /// create a window with a width or hight as a percentage of the original window
-    Proportional(u32),
+    /// New window should consume a percentage of the existing window
+    Proportional(i32),
 }
 
-/// Whether or not to put a border around the window
-pub type BorderStyle = bool;
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum WindowType {
+    /// A window containing a stream of text
+    TextBuffer,
+
+    /// A window containing grid-addressible characters
+    TextGrid,
+
+    /// A window that can display colored pixels
+    Graphics,
+
+    /// A blank window
+    Blank,
+
+    /// A pair window (internal to the library)
+    Pair,
+}
+
+impl Window {}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn can_create_window() {
+        let win = WindowRef::open(&None, None, WindowType::TextBuffer, 0);
+        assert_eq!(win.get_type(), WindowType::TextBuffer);
+    }
+
+    #[test]
+    fn can_split_window() {
+        let root_win = WindowRef::open(&None, None, WindowType::TextBuffer, 32);
+
+        let method = WindowSplitMethod {
+            position: WindowSplitPosition::Above,
+            amount: WindowSplitAmount::Fixed(3),
+            border: false,
+        };
+        let split = root_win.split(Some(method), WindowType::TextBuffer, 65);
+        assert_eq!(split.get_parent().unwrap().get_rock(), root_win.get_rock());
+    }
+}

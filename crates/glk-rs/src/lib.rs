@@ -2,6 +2,9 @@
 
 //! A rust library for writing glk-based code
 
+/// A rock value
+type GlkRock = i32;
+
 /// The main entry point for all things glk
 pub mod entry;
 pub use entry::Glk;

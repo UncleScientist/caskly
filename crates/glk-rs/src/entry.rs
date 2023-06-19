@@ -1,12 +1,13 @@
 use crate::gestalt::OutputType;
 use crate::gestalt::*;
 use crate::keycode::Keycode;
-use crate::windows::{BorderStyle, SplitDirection, SplitMethod, WinID, WindowType};
+// use crate::windows::{BorderStyle, SplitDirection, SplitMethod, WinID, WindowType};
+use crate::windows::{WindowRef, WindowSplitMethod, WindowType};
 
 /// The GLK object. TODO: Insert basic usage here
 #[derive(Default)]
 pub struct Glk {
-    windows: Vec<WinID>,
+    windows: Vec<WindowRef>,
 }
 
 impl Glk {
@@ -86,14 +87,19 @@ impl Glk {
     /// create a new window
     pub fn window_open(
         &mut self,
-        split: Option<WinID>,
-        split_dir: SplitDirection,
-        split_amt: SplitMethod,
-        border: BorderStyle,
+        parent: Option<WindowRef>,
         wintype: WindowType,
-        rock: u32,
-    ) -> Option<WinID> {
-        if !self.windows.is_empty() || split.is_some() {
+        method: WindowSplitMethod,
+        rock: crate::GlkRock,
+    ) -> Option<&WindowRef> {
+        // Ideally this would work similar to this:
+        // if let Some(new_win) = parent.split(wintype, method, rock) {
+        //      self.windows.push(new_win)
+        //      self.windows.last()
+        // } else {
+        //      None
+        // }
+        if !self.windows.is_empty() || parent.is_some() {
             return None;
         }
 
@@ -101,12 +107,13 @@ impl Glk {
             return None;
         }
 
-        let new_win = WinID::new(split_dir, split_amt, border, wintype, rock);
-        self.windows.push(new_win.get_clone());
+        let new_win = WindowRef::open(&None, None, wintype, rock);
+        self.windows.push(new_win);
 
-        Some(new_win)
+        self.windows.last()
     }
 
+    /*
     /// close the given window and all of its children
     pub fn window_close(&mut self, _win: WinID) {
         todo!();
@@ -126,6 +133,7 @@ impl Glk {
     pub fn window_get_sibling(win: WinID) -> Option<WinID> {
         win.sibling()
     }
+    */
 }
 
 /// determines the style of title case conversions
