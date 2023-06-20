@@ -20,15 +20,13 @@ impl Glk {
     pub fn gestalt(&self, gestalt: Gestalt) -> GestaltResult {
         match gestalt {
             Gestalt::Version => GestaltResult::Version(0x00000705),
-            Gestalt::LineInput(ch) => {
-                GestaltResult::CanAccept(ch as u32 >= 32 && (ch as u32) < 127)
-            }
+            Gestalt::LineInput(ch) => GestaltResult::CanAccept(ch >= ' ' && ch <= '~'),
             Gestalt::CharInput(Keycode::Basic(ch)) => {
-                GestaltResult::CanAccept(ch as u32 >= 32 && (ch as u32) < 127)
+                GestaltResult::CanAccept(ch >= ' ' && ch <= '~')
             }
             Gestalt::CharInput(ch) => GestaltResult::CanAccept(Keycode::Return == ch),
             Gestalt::CharOutput(Keycode::Basic(ch)) => {
-                if (ch as u32) >= 32 && (ch as u32) < 127 {
+                if ch >= ' ' && ch <= '~' {
                     GestaltResult::CharOutput(OutputType::ExactPrint)
                 } else {
                     GestaltResult::CharOutput(OutputType::CannotPrint(1))
