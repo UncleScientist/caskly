@@ -1,13 +1,13 @@
 use crate::gestalt::OutputType;
 use crate::gestalt::*;
 use crate::keycode::Keycode;
-// use crate::windows::{BorderStyle, SplitDirection, SplitMethod, WinID, WindowType};
-use crate::windows::{WindowRef, WindowSplitMethod, WindowType};
+use crate::windows::{WindowManager, WindowRef, WindowSplitMethod, WindowType};
 
 /// The GLK object. TODO: Insert basic usage here
 #[derive(Default)]
 pub struct Glk {
     windows: Vec<WindowRef>,
+    winmgr: WindowManager,
 }
 
 impl Glk {
@@ -109,7 +109,7 @@ impl Glk {
             return None;
         }
 
-        let new_win = WindowRef::init();
+        let new_win = self.winmgr.open_window(wintype, rock);
         self.windows.push(new_win);
 
         self.windows.last()

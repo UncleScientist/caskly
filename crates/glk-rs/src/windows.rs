@@ -2,28 +2,20 @@ use crate::GlkRock;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct WindowRef {
     winref: Rc<RefCell<Window>>,
 }
 
-impl WindowRef {
-    /// Set up windows subsystem
-    pub fn init() -> WindowRef {
-        WindowRef {
-            winref: Rc::new(RefCell::new(Window {
-                wintype: WindowType::Root,
-                rock: 0,
-                parent: None,
-                child1: None,
-                child2: None,
-            })),
-        }
-    }
+#[derive(Default)]
+pub(crate) struct WindowManager {
+    root: WindowRef,
+}
 
+impl WindowManager {
     /// Create a new window
-    pub fn create_root(&self, wintype: WindowType, rock: GlkRock) -> WindowRef {
-        assert!(self.winref.borrow().wintype == WindowType::Root);
+    pub(crate) fn open_window(&self, wintype: WindowType, rock: GlkRock) -> WindowRef {
+        assert!(self.root.winref.borrow().wintype == WindowType::Root);
         let root_win = WindowRef {
             winref: Rc::new(RefCell::new(Window {
                 wintype,
@@ -37,14 +29,17 @@ impl WindowRef {
             .winref
             .borrow_mut()
             .parent
-            .replace(Rc::downgrade(&self.winref));
-        self.winref
+            .replace(Rc::downgrade(&self.root.winref));
+        self.root
+            .winref
             .borrow_mut()
             .child1
             .replace(root_win.make_clone());
         root_win
     }
+}
 
+impl WindowRef {
     // before:                after:
     //     W                     P
     //                          / \
@@ -154,7 +149,7 @@ impl WindowRef {
 }
 
 /// A glk window
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Window {
     wintype: WindowType,
     rock: GlkRock,
@@ -196,7 +191,7 @@ pub enum WindowSplitAmount {
     Proportional(i32),
 }
 
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub enum WindowType {
     /// A window containing a stream of text
     TextBuffer,
@@ -214,6 +209,7 @@ pub enum WindowType {
     Pair,
 
     /// Topmost window of the tree
+    #[default]
     Root,
 }
 
@@ -225,15 +221,16 @@ mod test {
 
     #[test]
     fn can_create_window() {
-        let winsys = WindowRef::init();
-        let win = winsys.create_root(WindowType::TextBuffer, 32);
+        let winsys = WindowManager::default();
+
+        let win = winsys.open_window(WindowType::TextBuffer, 32);
         assert_eq!(win.get_type(), WindowType::TextBuffer);
     }
 
     #[test]
     fn can_split_window() {
-        let winsys = WindowRef::init();
-        let root_win = winsys.create_root(WindowType::TextBuffer, 32);
+        let winsys = WindowManager::default();
+        let root_win = winsys.open_window(WindowType::TextBuffer, 32);
 
         let method = WindowSplitMethod {
             position: WindowSplitPosition::Above,
