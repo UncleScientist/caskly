@@ -115,12 +115,12 @@ impl Glk {
         self.windows.last()
     }
 
-    /*
     /// close the given window and all of its children
-    pub fn window_close(&mut self, _win: WinID) {
-        todo!();
+    pub fn window_close(&mut self, win: &WindowRef) {
+        self.winmgr.close_window(win);
     }
 
+    /*
     /// get the rock value for a given window
     pub fn window_get_rock(win: WinID) -> u32 {
         win.get_rock()

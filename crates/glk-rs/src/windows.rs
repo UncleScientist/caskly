@@ -3,11 +3,17 @@ use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
 #[derive(Debug, Default)]
+pub struct StreamResult {
+    readcount: u32,
+    writecount: u32,
+}
+
+#[derive(Debug, Default)]
 pub struct WindowRef {
     winref: Rc<RefCell<Window>>,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub(crate) struct WindowManager {
     root: WindowRef,
 }
@@ -37,9 +43,45 @@ impl WindowManager {
             .replace(root_win.make_clone());
         root_win
     }
+
+    /// Close an existing window
+    pub(crate) fn close_window(&self, win: &WindowRef) -> StreamResult {
+        if let Some(child) = &win.winref.borrow().child1 {
+            self.close_window(child);
+        }
+
+        if let Some(child) = &win.winref.borrow().child2 {
+            self.close_window(child);
+        }
+
+        win.winref.borrow_mut().child1 = None;
+        win.winref.borrow_mut().child2 = None;
+
+        StreamResult::default()
+    }
+
+    fn dump(&self) {
+        self.root.dump(4);
+    }
 }
 
 impl WindowRef {
+    fn dump(&self, indent: usize) {
+        println!(
+            "{:indent$}{:?} ({})",
+            "",
+            self.winref.borrow().wintype,
+            self.winref.borrow().rock
+        );
+        if let Some(child) = &self.winref.borrow().child1 {
+            child.dump(indent + 4);
+        }
+
+        if let Some(child) = &self.winref.borrow().child2 {
+            child.dump(indent + 4);
+        }
+    }
+
     // before:                after:
     //     W                     P
     //                          / \
@@ -158,6 +200,7 @@ pub struct Window {
     child2: Option<WindowRef>,
 }
 
+#[derive(Copy, Clone)]
 pub struct WindowSplitMethod {
     /// Location of new window in relation to the existing window
     position: WindowSplitPosition,
@@ -169,6 +212,7 @@ pub struct WindowSplitMethod {
     border: bool,
 }
 
+#[derive(Copy, Clone)]
 pub enum WindowSplitPosition {
     /// New window should be above the existing window
     Above,
@@ -183,6 +227,7 @@ pub enum WindowSplitPosition {
     Right,
 }
 
+#[derive(Copy, Clone)]
 pub enum WindowSplitAmount {
     /// New window should have a fixed number of lines/columns
     Fixed(i32),
@@ -237,6 +282,7 @@ mod test {
             amount: WindowSplitAmount::Fixed(3),
             border: false,
         };
+
         let split = root_win.split(Some(method), WindowType::TextBuffer, 65);
 
         let parent = split.get_parent().unwrap();
@@ -247,5 +293,50 @@ mod test {
 
         let sibling = root_win.get_sibling().unwrap();
         assert_eq!(sibling.get_rock(), 65);
+    }
+
+    #[test]
+    fn can_split_multiple_times() {
+        let winsys = WindowManager::default();
+
+        let method = WindowSplitMethod {
+            position: WindowSplitPosition::Above,
+            amount: WindowSplitAmount::Proportional(50),
+            border: false,
+        };
+
+        let window_a = winsys.open_window(WindowType::TextBuffer, 32);
+        let window_b = window_a.split(Some(method.clone()), WindowType::TextBuffer, 33);
+        let _window_c = window_a.split(Some(method.clone()), WindowType::TextBuffer, 34);
+
+        let sibling = window_a.get_sibling().unwrap();
+        assert_eq!(sibling.get_rock(), 34);
+
+        let sibling = window_b.get_sibling().unwrap();
+        assert_eq!(sibling.get_type(), WindowType::Pair);
+    }
+
+    #[test]
+    fn can_destroy_window() {
+        let winsys = WindowManager::default();
+
+        let method = WindowSplitMethod {
+            position: WindowSplitPosition::Above,
+            amount: WindowSplitAmount::Proportional(50),
+            border: false,
+        };
+
+        let window_a = winsys.open_window(WindowType::TextBuffer, 32);
+        let window_b = window_a.split(Some(method.clone()), WindowType::TextBuffer, 33);
+
+        let window_c = window_a.split(Some(method.clone()), WindowType::TextBuffer, 34);
+        let window_d = window_c.split(Some(method.clone()), WindowType::TextBuffer, 35);
+
+        let parent = window_d.get_parent().unwrap();
+        let sibling = parent.get_sibling().unwrap();
+        winsys.dump();
+        assert_eq!(sibling.get_rock(), 32);
+
+        // TODO: call window_d.destroy();
     }
 }
