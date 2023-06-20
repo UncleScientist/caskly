@@ -16,17 +16,21 @@ impl Glk {
         Self::default()
     }
 
+    fn is_valid_glk_char(ch: char) -> bool {
+        ch >= ' ' && ch <= '~'
+    }
+
     /// Retrieve capability from the gestalt system
     pub fn gestalt(&self, gestalt: Gestalt) -> GestaltResult {
         match gestalt {
             Gestalt::Version => GestaltResult::Version(0x00000705),
-            Gestalt::LineInput(ch) => GestaltResult::CanAccept(ch >= ' ' && ch <= '~'),
+            Gestalt::LineInput(ch) => GestaltResult::CanAccept(Glk::is_valid_glk_char(ch)),
             Gestalt::CharInput(Keycode::Basic(ch)) => {
-                GestaltResult::CanAccept(ch >= ' ' && ch <= '~')
+                GestaltResult::CanAccept(Glk::is_valid_glk_char(ch))
             }
             Gestalt::CharInput(ch) => GestaltResult::CanAccept(Keycode::Return == ch),
             Gestalt::CharOutput(Keycode::Basic(ch)) => {
-                if ch >= ' ' && ch <= '~' {
+                if Glk::is_valid_glk_char(ch) {
                     GestaltResult::CharOutput(OutputType::ExactPrint)
                 } else {
                     GestaltResult::CharOutput(OutputType::CannotPrint(1))
