@@ -2,14 +2,19 @@ use crate::GlkRock;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
+/// The stats from the window that is being closed
 #[derive(Debug, Default)]
 pub struct StreamResult {
-    readcount: u32,
-    writecount: u32,
+    /// number of characters that were read from this stream
+    pub readcount: u32,
+    /// number of characters that were written to this stream
+    pub writecount: u32,
 }
 
+/// A GLK window reference
 #[derive(Debug, Default)]
 pub struct WindowRef {
+    /// the reference to the window
     winref: Rc<RefCell<Window>>,
 }
 
@@ -60,12 +65,14 @@ impl WindowManager {
         StreamResult::default()
     }
 
+    #[cfg(test)]
     fn dump(&self) {
         self.root.dump(4);
     }
 }
 
 impl WindowRef {
+    #[cfg(test)]
     fn dump(&self, indent: usize) {
         println!(
             "{:indent$}{:?} ({})",
@@ -92,7 +99,7 @@ impl WindowRef {
     /// becomes the sibling of the new window being created.
     pub fn split(
         &self,
-        method: Option<WindowSplitMethod>,
+        _method: Option<WindowSplitMethod>,
         wintype: WindowType,
         rock: GlkRock,
     ) -> WindowRef {
@@ -162,21 +169,25 @@ impl WindowRef {
         }
     }
 
-    fn get_type(&self) -> WindowType {
+    /// returns the type of this window
+    pub fn get_type(&self) -> WindowType {
         self.winref.borrow().wintype
     }
 
-    fn get_rock(&self) -> GlkRock {
+    /// returns the rock value for this window
+    pub fn get_rock(&self) -> GlkRock {
         self.winref.borrow().rock
     }
 
-    fn get_parent(&self) -> Option<WindowRef> {
+    /// looks up the parent of this window
+    pub fn get_parent(&self) -> Option<WindowRef> {
         Some(WindowRef {
             winref: self.winref.borrow().parent.as_ref()?.upgrade()?,
         })
     }
 
-    fn get_sibling(&self) -> Option<WindowRef> {
+    /// finds the sibling of the window, NULL if root
+    pub fn get_sibling(&self) -> Option<WindowRef> {
         let parent = self.winref.borrow().parent.as_ref()?.upgrade()?;
         if parent.borrow().wintype == WindowType::Root {
             return None;
@@ -200,18 +211,20 @@ pub struct Window {
     child2: Option<WindowRef>,
 }
 
+/// Describes how a window should be created when splitting from an existing window
 #[derive(Copy, Clone)]
 pub struct WindowSplitMethod {
     /// Location of new window in relation to the existing window
-    position: WindowSplitPosition,
+    pub position: WindowSplitPosition,
 
     /// What the new window should look like compared to the existing one
-    amount: WindowSplitAmount,
+    pub amount: WindowSplitAmount,
 
     /// Does it have a border?
-    border: bool,
+    pub border: bool,
 }
 
+/// Describes where the new window should be placed in relation to the existing window
 #[derive(Copy, Clone)]
 pub enum WindowSplitPosition {
     /// New window should be above the existing window
@@ -227,6 +240,7 @@ pub enum WindowSplitPosition {
     Right,
 }
 
+/// How the new window should be sized in relation to the existing window
 #[derive(Copy, Clone)]
 pub enum WindowSplitAmount {
     /// New window should have a fixed number of lines/columns
@@ -236,6 +250,7 @@ pub enum WindowSplitAmount {
     Proportional(i32),
 }
 
+/// What kind of window to create
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub enum WindowType {
     /// A window containing a stream of text
@@ -327,7 +342,7 @@ mod test {
         };
 
         let window_a = winsys.open_window(WindowType::TextBuffer, 32);
-        let window_b = window_a.split(Some(method.clone()), WindowType::TextBuffer, 33);
+        let _window_b = window_a.split(Some(method.clone()), WindowType::TextBuffer, 33);
 
         let window_c = window_a.split(Some(method.clone()), WindowType::TextBuffer, 34);
         let window_d = window_c.split(Some(method.clone()), WindowType::TextBuffer, 35);

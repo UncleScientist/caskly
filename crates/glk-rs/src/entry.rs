@@ -91,7 +91,7 @@ impl Glk {
         &mut self,
         parent: Option<WindowRef>,
         wintype: WindowType,
-        method: WindowSplitMethod,
+        _method: WindowSplitMethod,
         rock: crate::GlkRock,
     ) -> Option<&WindowRef> {
         // Ideally this would work similar to this:
