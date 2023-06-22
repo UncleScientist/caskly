@@ -75,10 +75,11 @@ impl WindowRef {
     #[cfg(test)]
     fn dump(&self, indent: usize) {
         println!(
-            "{:indent$}{:?} ({})",
+            "{:indent$}{:?} ({}) [parent = {:?}]",
             "",
             self.winref.borrow().wintype,
-            self.winref.borrow().rock
+            self.winref.borrow().rock,
+            self.winref.borrow().parent,
         );
         if let Some(child) = &self.winref.borrow().child1 {
             child.dump(indent + 4);
@@ -89,10 +90,22 @@ impl WindowRef {
         }
     }
 
+    // Splitting a singleton Window
     // before:                after:
-    //     W                     P
-    //                          / \
-    //                         W   N
+    //    R                     R
+    //    |                     |
+    //    W                     P
+    //                         / \
+    //                        W   N
+    //
+    // Splitting a child window (window A):
+    //     R                     R
+    //     |                     |
+    //     S                     S
+    //    / \                   / \
+    //   A   B                 P   B
+    //                        / \
+    //                       A   N
     /// Split an existing window. Creates a pair window which becomes the
     /// parent of the two windows. The original parent of the split window
     /// becomes the parent of the pair window, and the window being split
@@ -126,6 +139,7 @@ impl WindowRef {
                 child2: None,
             })),
         };
+
         let pair_win = WindowRef {
             winref: Rc::new(RefCell::new(Window {
                 wintype: WindowType::Pair,
@@ -135,31 +149,29 @@ impl WindowRef {
                 child2: Some(new_win.make_clone()),
             })),
         };
-        if let Some(old_parent) = self
+
+        let old_parent = self
             .winref
-            .borrow_mut()
+            .borrow()
             .parent
-            .replace(Rc::downgrade(&pair_win.winref))
-        {
-            pair_win
-                .winref
-                .borrow_mut()
-                .parent
-                .replace(old_parent.clone());
-            old_parent
-                .upgrade()
-                .unwrap()
-                .borrow_mut()
-                .child1
-                .replace(pair_win.make_clone());
-        } else {
-            panic!("missing root window");
+            .as_ref()
+            .unwrap()
+            .upgrade()
+            .unwrap();
+
+        let child1 = old_parent.borrow().child1.as_ref().unwrap().winref.clone();
+        if Rc::ptr_eq(&self.winref, &child1) {
+            old_parent.borrow_mut().child1 = Some(pair_win.make_clone());
+        } else if old_parent.borrow().child2.as_ref().is_some() {
+            let child2 = old_parent.borrow().child2.as_ref().unwrap().winref.clone();
+            assert!(Rc::ptr_eq(&self.winref, &child2));
+            old_parent.borrow_mut().child2 = Some(pair_win.make_clone());
         }
-        new_win
-            .winref
-            .borrow_mut()
-            .parent
-            .replace(Rc::downgrade(&pair_win.winref));
+
+        self.winref.borrow_mut().parent = Some(Rc::downgrade(&pair_win.winref));
+        new_win.winref.borrow_mut().parent = Some(Rc::downgrade(&pair_win.winref));
+        pair_win.winref.borrow_mut().parent = Some(Rc::downgrade(&old_parent));
+
         new_win
     }
 
@@ -349,7 +361,7 @@ mod test {
 
         let parent = window_d.get_parent().unwrap();
         let sibling = parent.get_sibling().unwrap();
-        winsys.dump();
+
         assert_eq!(sibling.get_rock(), 32);
 
         // TODO: call window_d.destroy();
