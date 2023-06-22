@@ -65,15 +65,13 @@ impl WindowManager {
         StreamResult::default()
     }
 
-    #[cfg(test)]
-    fn dump(&self) {
-        self.root.dump(4);
+    fn _dump(&self) {
+        self.root._dump(4);
     }
 }
 
 impl WindowRef {
-    #[cfg(test)]
-    fn dump(&self, indent: usize) {
+    fn _dump(&self, indent: usize) {
         println!(
             "{:indent$}{:?} ({}) [parent = {:?}]",
             "",
@@ -82,11 +80,11 @@ impl WindowRef {
             self.winref.borrow().parent,
         );
         if let Some(child) = &self.winref.borrow().child1 {
-            child.dump(indent + 4);
+            child._dump(indent + 4);
         }
 
         if let Some(child) = &self.winref.borrow().child2 {
-            child.dump(indent + 4);
+            child._dump(indent + 4);
         }
     }
 

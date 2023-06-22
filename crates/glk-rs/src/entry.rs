@@ -10,27 +10,32 @@ pub struct Glk {
     winmgr: WindowManager,
 }
 
+trait ValidGlkChar {
+    fn is_glk_char(&self) -> bool;
+}
+
+impl ValidGlkChar for char {
+    // The Glk spec requires that all valid characters are in the range 32 to 126.
+    fn is_glk_char(&self) -> bool {
+        (32..=126).contains(&(*self as i32))
+    }
+}
+
 impl Glk {
     /// Create a new glk interface
     pub fn new() -> Self {
         Self::default()
     }
 
-    fn is_valid_glk_char(ch: char) -> bool {
-        ch >= ' ' && ch <= '~'
-    }
-
     /// Retrieve capability from the gestalt system
     pub fn gestalt(&self, gestalt: Gestalt) -> GestaltResult {
         match gestalt {
             Gestalt::Version => GestaltResult::Version(0x00000705),
-            Gestalt::LineInput(ch) => GestaltResult::CanAccept(Glk::is_valid_glk_char(ch)),
-            Gestalt::CharInput(Keycode::Basic(ch)) => {
-                GestaltResult::CanAccept(Glk::is_valid_glk_char(ch))
-            }
+            Gestalt::LineInput(ch) => GestaltResult::CanAccept(ch.is_glk_char()),
+            Gestalt::CharInput(Keycode::Basic(ch)) => GestaltResult::CanAccept(ch.is_glk_char()),
             Gestalt::CharInput(ch) => GestaltResult::CanAccept(Keycode::Return == ch),
             Gestalt::CharOutput(Keycode::Basic(ch)) => {
-                if Glk::is_valid_glk_char(ch) {
+                if ch.is_glk_char() {
                     GestaltResult::CharOutput(OutputType::ExactPrint)
                 } else {
                     GestaltResult::CharOutput(OutputType::CannotPrint(1))
