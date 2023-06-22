@@ -49,22 +49,6 @@ impl WindowManager {
         root_win
     }
 
-    /// Close an existing window
-    pub(crate) fn close_window(&self, win: &WindowRef) -> StreamResult {
-        if let Some(child) = &win.winref.borrow().child1 {
-            self.close_window(child);
-        }
-
-        if let Some(child) = &win.winref.borrow().child2 {
-            self.close_window(child);
-        }
-
-        win.winref.borrow_mut().child1 = None;
-        win.winref.borrow_mut().child2 = None;
-
-        StreamResult::default()
-    }
-
     fn _dump(&self) {
         self.root._dump(4);
     }
@@ -173,6 +157,49 @@ impl WindowRef {
         new_win
     }
 
+    fn clean_tree(&mut self) {
+        if let Some(child1) = self.winref.borrow_mut().child1.as_mut() {
+            child1.clean_tree();
+        }
+
+        if let Some(child2) = self.winref.borrow_mut().child2.as_mut() {
+            child2.clean_tree();
+        }
+
+        self.winref.borrow_mut().child1 = None;
+        self.winref.borrow_mut().child2 = None;
+    }
+
+    pub(crate) fn close_window(&self) -> StreamResult {
+        let mut parent = self.get_parent().unwrap();
+        let grandparent = parent.get_parent().unwrap();
+
+        let sibling = self.get_sibling().unwrap();
+
+        // grandparent's child (parent) is replaced with sibling
+        // then close all windows from parent on down
+
+        if let Some(child1) = grandparent.winref.borrow().child1.as_ref() {
+            if Rc::ptr_eq(&child1.winref, &parent.winref) {
+                grandparent.winref.borrow_mut().child1 = Some(sibling);
+            } else if grandparent.winref.borrow().child2.is_some() {
+                let child2 = grandparent
+                    .winref
+                    .borrow()
+                    .child2
+                    .as_ref()
+                    .unwrap()
+                    .make_clone();
+                assert!(Rc::ptr_eq(&child2.winref, &parent.winref));
+                grandparent.winref.borrow_mut().child2 = Some(sibling);
+            }
+        }
+
+        parent.clean_tree();
+
+        StreamResult::default()
+    }
+
     fn make_clone(&self) -> WindowRef {
         WindowRef {
             winref: Rc::clone(&self.winref),
@@ -208,6 +235,10 @@ impl WindowRef {
         } else {
             Some(parent.borrow().child1.as_ref()?.make_clone())
         }
+    }
+
+    pub(crate) fn is_ref(&self, win: &WindowRef) -> bool {
+        Rc::ptr_eq(&self.winref, &win.winref)
     }
 }
 
@@ -362,6 +393,12 @@ mod test {
 
         assert_eq!(sibling.get_rock(), 32);
 
-        // TODO: call window_d.destroy();
+        println!("---\nbefore:");
+        winsys._dump();
+        window_d.close_window();
+        println!("\n\n---\nafter:");
+        winsys._dump();
+
+        assert_eq!(window_a.get_sibling().unwrap().get_rock(), 34);
     }
 }

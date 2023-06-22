@@ -122,7 +122,8 @@ impl Glk {
 
     /// close the given window and all of its children
     pub fn window_close(&mut self, win: &WindowRef) {
-        self.winmgr.close_window(win);
+        self.windows.retain(|w| !w.is_ref(win));
+        win.close_window();
     }
 
     /*
