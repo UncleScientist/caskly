@@ -274,6 +274,21 @@ impl<T: GlkWindow + Default> WindowRef<T> {
         self.winref.borrow().window.get_size()
     }
 
+    /// changes the size of an existing split
+    pub fn set_arrangement(&self, method: WindowSplitMethod) {
+        // XXX: set this on the parent? modify the sibling?
+        self.winref.borrow_mut().method = Some(method);
+    }
+
+    /// returns the constraints of the window
+    pub fn get_arrangement(&self) -> Option<WindowSplitMethod> {
+        // XXX: this needs to be calculated on the fly, based on how this
+        // window was created (e.g. split from another?) and what its parent
+        // pair window looks like
+        let method = self.get_parent()?.winref.borrow().method?;
+        Some(method.clone())
+    }
+
     pub(crate) fn is_ref(&self, win: &WindowRef<T>) -> bool {
         Rc::ptr_eq(&self.winref, &win.winref)
     }
@@ -299,7 +314,7 @@ pub struct Window<T: GlkWindow + Default> {
 }
 
 /// Describes how a window should be created when splitting from an existing window
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct WindowSplitMethod {
     /// Location of new window in relation to the existing window
     pub position: WindowSplitPosition,
@@ -312,7 +327,7 @@ pub struct WindowSplitMethod {
 }
 
 /// Describes where the new window should be placed in relation to the existing window
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum WindowSplitPosition {
     /// New window should be above the existing window
     Above,
@@ -328,7 +343,7 @@ pub enum WindowSplitPosition {
 }
 
 /// How the new window should be sized in relation to the existing window
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum WindowSplitAmount {
     /// New window should have a fixed number of lines/columns
     Fixed(i32),
@@ -485,5 +500,31 @@ mod test {
         let size = root_window.get_size();
         assert_eq!(size.width, 12);
         assert_eq!(size.height, 17);
+    }
+
+    #[test]
+    fn can_get_window_constraints() {
+        let winsys = WindowManager::<GlkTestWindow>::default();
+
+        let method = WindowSplitMethod {
+            position: WindowSplitPosition::Above,
+            amount: WindowSplitAmount::Proportional(20),
+            border: false,
+        };
+
+        let window_a = winsys.open_window(WindowType::TextBuffer, 32);
+        let window_b = window_a.split(Some(method.clone()), WindowType::TextBuffer, 33);
+
+        let b_method = window_b.get_arrangement().unwrap();
+        assert_eq!(method.position, b_method.position);
+        assert_eq!(method.amount, b_method.amount);
+        assert_eq!(method.border, b_method.border);
+
+        /* TODO: fix this for the next stream!
+        let a_method = window_a.get_arrangement().unwrap();
+        assert_eq!(WindowSplitPosition::Below, a_method.position);
+        assert_eq!(WindowSplitAmount::Proportional(80), a_method.amount);
+        assert_eq!(false, a_method.border);
+        */
     }
 }
