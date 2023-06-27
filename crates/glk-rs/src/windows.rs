@@ -40,6 +40,7 @@ impl<T: GlkWindow + Default> WindowManager<T> {
         let root_win = WindowRef {
             winref: Rc::new(RefCell::new(Window {
                 wintype,
+                method: None,
                 rock,
                 parent: None,
                 child1: None,
@@ -105,7 +106,7 @@ impl<T: GlkWindow + Default> WindowRef<T> {
     /// becomes the sibling of the new window being created.
     pub fn split(
         &self,
-        _method: Option<WindowSplitMethod>,
+        method: Option<WindowSplitMethod>,
         wintype: WindowType,
         rock: GlkRock,
     ) -> WindowRef<T> {
@@ -113,6 +114,7 @@ impl<T: GlkWindow + Default> WindowRef<T> {
             let child = WindowRef {
                 winref: Rc::new(RefCell::new(Window {
                     wintype,
+                    method,
                     rock,
                     parent: None,
                     child1: None,
@@ -127,6 +129,7 @@ impl<T: GlkWindow + Default> WindowRef<T> {
         let new_win = WindowRef {
             winref: Rc::new(RefCell::new(Window {
                 wintype,
+                method: None,
                 rock,
                 parent: None,
                 child1: None,
@@ -138,6 +141,7 @@ impl<T: GlkWindow + Default> WindowRef<T> {
         let pair_win = WindowRef {
             winref: Rc::new(RefCell::new(Window {
                 wintype: WindowType::Pair,
+                method,
                 rock: 0,
                 parent: None,
                 child1: Some(self.make_clone()),
@@ -286,6 +290,7 @@ pub trait GlkWindow {
 #[derive(Debug, Default)]
 pub struct Window<T: GlkWindow + Default> {
     wintype: WindowType,
+    method: Option<WindowSplitMethod>,
     rock: GlkRock,
     parent: Option<Weak<RefCell<Window<T>>>>,
     child1: Option<WindowRef<T>>,
@@ -294,7 +299,7 @@ pub struct Window<T: GlkWindow + Default> {
 }
 
 /// Describes how a window should be created when splitting from an existing window
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct WindowSplitMethod {
     /// Location of new window in relation to the existing window
     pub position: WindowSplitPosition,
@@ -307,7 +312,7 @@ pub struct WindowSplitMethod {
 }
 
 /// Describes where the new window should be placed in relation to the existing window
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum WindowSplitPosition {
     /// New window should be above the existing window
     Above,
@@ -323,7 +328,7 @@ pub enum WindowSplitPosition {
 }
 
 /// How the new window should be sized in relation to the existing window
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum WindowSplitAmount {
     /// New window should have a fixed number of lines/columns
     Fixed(i32),
