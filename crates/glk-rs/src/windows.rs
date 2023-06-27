@@ -170,6 +170,13 @@ impl WindowRef {
         self.winref.borrow_mut().child2 = None;
     }
 
+    // Closing an existing window (D):
+    //
+    //     G             G
+    //    / \           / \
+    //   P   U         C   U
+    //  / \
+    // C   D
     pub(crate) fn close_window(&self) -> StreamResult {
         let mut parent = self.get_parent().unwrap();
         let grandparent = parent.get_parent().unwrap();
@@ -179,20 +186,27 @@ impl WindowRef {
         // grandparent's child (parent) is replaced with sibling
         // then close all windows from parent on down
 
-        if let Some(child1) = grandparent.winref.borrow().child1.as_ref() {
-            if Rc::ptr_eq(&child1.winref, &parent.winref) {
-                grandparent.winref.borrow_mut().child1 = Some(sibling);
-            } else if grandparent.winref.borrow().child2.is_some() {
-                let child2 = grandparent
-                    .winref
-                    .borrow()
-                    .child2
-                    .as_ref()
-                    .unwrap()
-                    .make_clone();
-                assert!(Rc::ptr_eq(&child2.winref, &parent.winref));
-                grandparent.winref.borrow_mut().child2 = Some(sibling);
-            }
+        let is_child1 = if let Some(child1) = grandparent.winref.borrow().child1.as_ref() {
+            Rc::ptr_eq(&child1.winref, &parent.winref)
+        } else {
+            false
+        };
+
+        #[cfg(test)]
+        {
+            let is_child2 = if let Some(child2) = grandparent.winref.borrow().child2.as_ref() {
+                Rc::ptr_eq(&child2.winref, &parent.winref)
+            } else {
+                false
+            };
+
+            assert!(is_child1 != is_child2);
+        }
+
+        if is_child1 {
+            grandparent.winref.borrow_mut().child1 = Some(sibling);
+        } else {
+            grandparent.winref.borrow_mut().child2 = Some(sibling);
         }
 
         parent.clean_tree();
