@@ -1,13 +1,13 @@
 use crate::gestalt::OutputType;
 use crate::gestalt::*;
 use crate::keycode::Keycode;
-use crate::windows::{WindowManager, WindowRef, WindowSplitMethod, WindowType};
+use crate::windows::{GlkWindow, WindowManager, WindowRef, WindowSplitMethod, WindowType};
 
 /// The GLK object. TODO: Insert basic usage here
-#[derive(Default)]
-pub struct Glk {
-    windows: Vec<WindowRef>,
-    winmgr: WindowManager,
+#[derive(Default, Debug)]
+pub struct Glk<T: GlkWindow + Default> {
+    windows: Vec<WindowRef<T>>,
+    winmgr: WindowManager<T>,
 }
 
 trait ValidGlkChar {
@@ -21,7 +21,7 @@ impl ValidGlkChar for char {
     }
 }
 
-impl Glk {
+impl<T: GlkWindow + Default> Glk<T> {
     /// Create a new glk interface
     pub fn new() -> Self {
         Self::default()
@@ -48,29 +48,29 @@ impl Glk {
     }
 
     /// Convert a latin-1 / unicode character to lowercase
-    pub fn char_to_lower(ch: impl ToChar) -> char {
+    pub fn char_to_lower(&self, ch: impl ToChar) -> char {
         let ch = ch.to_char();
         ch.to_lowercase().next().unwrap()
     }
 
     /// Convert a latin-1 / unicode character to uppercase
-    pub fn char_to_upper(ch: impl ToChar) -> char {
+    pub fn char_to_upper(&self, ch: impl ToChar) -> char {
         let ch = ch.to_char();
         ch.to_uppercase().next().unwrap()
     }
 
     /// convert a string to upper case
-    pub fn buffer_to_upper_case_uni(s: &str) -> String {
+    pub fn buffer_to_upper_case_uni(&self, s: &str) -> String {
         s.to_uppercase()
     }
 
     /// convert a string to lower case
-    pub fn buffer_to_lower_case_uni(s: &str) -> String {
+    pub fn buffer_to_lower_case_uni(&self, s: &str) -> String {
         s.to_lowercase()
     }
 
     /// convert a string to title case
-    pub fn buffer_to_title_case_uni(s: &str, style: TitleCaseStyle) -> String {
+    pub fn buffer_to_title_case_uni(&self, s: &str, style: TitleCaseStyle) -> String {
         let mut result = String::new();
 
         if s.is_empty() {
@@ -94,11 +94,11 @@ impl Glk {
     /// create a new window
     pub fn window_open(
         &mut self,
-        parent: Option<WindowRef>,
+        parent: Option<WindowRef<T>>,
         wintype: WindowType,
         _method: WindowSplitMethod,
         rock: crate::GlkRock,
-    ) -> Option<&WindowRef> {
+    ) -> Option<&WindowRef<T>> {
         // Ideally this would work similar to this:
         // if let Some(new_win) = parent.split(wintype, method, rock) {
         //      self.windows.push(new_win)
@@ -121,7 +121,7 @@ impl Glk {
     }
 
     /// close the given window and all of its children
-    pub fn window_close(&mut self, win: &WindowRef) {
+    pub fn window_close(&mut self, win: &WindowRef<T>) {
         self.windows.retain(|w| !w.is_ref(win));
         win.close_window();
     }
@@ -175,10 +175,11 @@ impl ToChar for char {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::windows::testwin::GlkTestWindow;
 
     #[test]
     fn can_get_glk_version() {
-        let glk = Glk::new();
+        let glk = Glk::<GlkTestWindow>::new();
         assert_eq!(
             GestaltResult::Version(0x00000705),
             glk.gestalt(Gestalt::Version)
@@ -191,7 +192,7 @@ mod test {
     }
     #[test]
     fn can_handle_characters() {
-        let glk = Glk::new();
+        let glk = Glk::<GlkTestWindow>::new();
         assert_eq!(
             GestaltResult::CanAccept(true),
             glk.gestalt(Gestalt::CharInput(Keycode::Basic('a')))
@@ -200,7 +201,7 @@ mod test {
 
     #[test]
     fn can_handle_return_key() {
-        let glk = Glk::new();
+        let glk = Glk::<GlkTestWindow>::new();
         assert_eq!(
             GestaltResult::CanAccept(true),
             glk.gestalt(Gestalt::CharInput(Keycode::Return))
@@ -209,7 +210,7 @@ mod test {
 
     #[test]
     fn can_output_normal_characters() {
-        let glk = Glk::new();
+        let glk = Glk::<GlkTestWindow>::new();
         assert_eq!(
             GestaltResult::CharOutput(OutputType::ExactPrint),
             glk.gestalt(Gestalt::CharOutput(Keycode::Basic('f')))
@@ -218,7 +219,7 @@ mod test {
 
     #[test]
     fn cannot_print_invalid_characters() {
-        let glk = Glk::new();
+        let glk = Glk::<GlkTestWindow>::new();
         assert_eq!(
             GestaltResult::CharOutput(OutputType::CannotPrint(1)),
             glk.gestalt(Gestalt::CharOutput(Keycode::Basic('\t')))
@@ -227,56 +228,58 @@ mod test {
 
     #[test]
     fn can_convert_to_uppercase() {
-        assert_eq!('A', Glk::char_to_upper('a'));
+        let glk = Glk::<GlkTestWindow>::new();
+        assert_eq!('A', glk.char_to_upper('a'));
     }
 
     #[test]
     fn can_convert_to_lowercase() {
-        assert_eq!('a', Glk::char_to_lower('A'));
+        let glk = Glk::<GlkTestWindow>::new();
+        assert_eq!('a', glk.char_to_lower('A'));
     }
 
     #[test]
     fn can_do_non_english_chars() {
-        assert_eq!('ü', Glk::char_to_lower('Ü'));
+        let glk = Glk::<GlkTestWindow>::new();
+        assert_eq!('ü', glk.char_to_lower('Ü'));
     }
 
     #[test]
     fn convert_string_to_uppercase() {
-        assert_eq!(
-            "ABCDEF".to_string(),
-            Glk::buffer_to_upper_case_uni("AbcDef")
-        );
+        let glk = Glk::<GlkTestWindow>::new();
+        assert_eq!("ABCDEF".to_string(), glk.buffer_to_upper_case_uni("AbcDef"));
     }
 
     #[test]
     fn convert_string_to_lowercase() {
-        assert_eq!(
-            "abcdef".to_string(),
-            Glk::buffer_to_lower_case_uni("AbcDef")
-        );
+        let glk = Glk::<GlkTestWindow>::new();
+        assert_eq!("abcdef".to_string(), glk.buffer_to_lower_case_uni("AbcDef"));
     }
 
     #[test]
     fn convert_string_to_title_case() {
+        let glk = Glk::<GlkTestWindow>::new();
         assert_eq!(
             "AbcDef",
-            Glk::buffer_to_title_case_uni("abcDef", TitleCaseStyle::UppercaseFirst)
+            glk.buffer_to_title_case_uni("abcDef", TitleCaseStyle::UppercaseFirst)
         );
     }
 
     #[test]
     fn convert_string_to_title_case_with_lowercase() {
+        let glk = Glk::<GlkTestWindow>::new();
         assert_eq!(
             "Abcdef",
-            Glk::buffer_to_title_case_uni("abcDef", TitleCaseStyle::LowercaseRest)
+            glk.buffer_to_title_case_uni("abcDef", TitleCaseStyle::LowercaseRest)
         );
     }
 
     #[test]
     fn conversion_of_title_case_handles_empty_string() {
+        let glk = Glk::<GlkTestWindow>::new();
         assert_eq!(
             "",
-            Glk::buffer_to_title_case_uni("", TitleCaseStyle::LowercaseRest)
+            glk.buffer_to_title_case_uni("", TitleCaseStyle::LowercaseRest)
         );
     }
 }

@@ -11,21 +11,31 @@ pub struct StreamResult {
     pub writecount: u32,
 }
 
+/// The size of a window
+#[derive(Debug, Default)]
+pub struct WindowSize {
+    /// Width of the window in its measurement system (Glk spec section 1.9)
+    pub width: u32,
+
+    /// Height of the window in its measurement system (Glk spec section 1.9)
+    pub height: u32,
+}
+
 /// A GLK window reference
 #[derive(Debug, Default)]
-pub struct WindowRef {
+pub struct WindowRef<T: GlkWindow + Default> {
     /// the reference to the window
-    winref: Rc<RefCell<Window>>,
+    winref: Rc<RefCell<Window<T>>>,
 }
 
 #[derive(Debug, Default)]
-pub(crate) struct WindowManager {
-    root: WindowRef,
+pub(crate) struct WindowManager<T: GlkWindow + Default> {
+    root: WindowRef<T>,
 }
 
-impl WindowManager {
+impl<T: GlkWindow + Default> WindowManager<T> {
     /// Create a new window
-    pub(crate) fn open_window(&self, wintype: WindowType, rock: GlkRock) -> WindowRef {
+    pub(crate) fn open_window(&self, wintype: WindowType, rock: GlkRock) -> WindowRef<T> {
         assert!(self.root.winref.borrow().wintype == WindowType::Root);
         let root_win = WindowRef {
             winref: Rc::new(RefCell::new(Window {
@@ -34,6 +44,7 @@ impl WindowManager {
                 parent: None,
                 child1: None,
                 child2: None,
+                window: T::default(),
             })),
         };
         root_win
@@ -54,7 +65,7 @@ impl WindowManager {
     }
 }
 
-impl WindowRef {
+impl<T: GlkWindow + Default> WindowRef<T> {
     fn _dump(&self, indent: usize) {
         println!(
             "{:indent$}{:?} ({}) [parent = {:?}]",
@@ -97,7 +108,7 @@ impl WindowRef {
         _method: Option<WindowSplitMethod>,
         wintype: WindowType,
         rock: GlkRock,
-    ) -> WindowRef {
+    ) -> WindowRef<T> {
         if self.winref.borrow().wintype == WindowType::Root {
             let child = WindowRef {
                 winref: Rc::new(RefCell::new(Window {
@@ -106,6 +117,7 @@ impl WindowRef {
                     parent: None,
                     child1: None,
                     child2: None,
+                    window: T::default(),
                 })),
             };
             self.winref.borrow_mut().child1.replace(child.make_clone());
@@ -119,6 +131,7 @@ impl WindowRef {
                 parent: None,
                 child1: None,
                 child2: None,
+                window: T::default(),
             })),
         };
 
@@ -129,6 +142,7 @@ impl WindowRef {
                 parent: None,
                 child1: Some(self.make_clone()),
                 child2: Some(new_win.make_clone()),
+                window: T::default(),
             })),
         };
 
@@ -214,7 +228,7 @@ impl WindowRef {
         StreamResult::default()
     }
 
-    fn make_clone(&self) -> WindowRef {
+    fn make_clone(&self) -> WindowRef<T> {
         WindowRef {
             winref: Rc::clone(&self.winref),
         }
@@ -231,14 +245,14 @@ impl WindowRef {
     }
 
     /// looks up the parent of this window
-    pub fn get_parent(&self) -> Option<WindowRef> {
+    pub fn get_parent(&self) -> Option<WindowRef<T>> {
         Some(WindowRef {
             winref: self.winref.borrow().parent.as_ref()?.upgrade()?,
         })
     }
 
     /// finds the sibling of the window, NULL if root
-    pub fn get_sibling(&self) -> Option<WindowRef> {
+    pub fn get_sibling(&self) -> Option<WindowRef<T>> {
         let parent = self.winref.borrow().parent.as_ref()?.upgrade()?;
         if parent.borrow().wintype == WindowType::Root {
             return None;
@@ -251,19 +265,32 @@ impl WindowRef {
         }
     }
 
-    pub(crate) fn is_ref(&self, win: &WindowRef) -> bool {
+    /// Get the size of the window in its measurement system (Glk Spec section 1.9)
+    pub fn get_size(&self) -> WindowSize {
+        self.winref.borrow().window.get_size()
+    }
+
+    pub(crate) fn is_ref(&self, win: &WindowRef<T>) -> bool {
         Rc::ptr_eq(&self.winref, &win.winref)
     }
 }
 
+/// Interface for a window type; implement this to create a back-end for your
+/// window.
+pub trait GlkWindow {
+    /// returns the size of the window in its measurement system
+    fn get_size(&self) -> WindowSize;
+}
+
 /// A glk window
 #[derive(Debug, Default)]
-pub struct Window {
+pub struct Window<T: GlkWindow + Default> {
     wintype: WindowType,
     rock: GlkRock,
-    parent: Option<Weak<RefCell<Window>>>,
-    child1: Option<WindowRef>,
-    child2: Option<WindowRef>,
+    parent: Option<Weak<RefCell<Window<T>>>>,
+    child1: Option<WindowRef<T>>,
+    child2: Option<WindowRef<T>>,
+    window: T,
 }
 
 /// Describes how a window should be created when splitting from an existing window
@@ -328,15 +355,45 @@ pub enum WindowType {
     Root,
 }
 
-impl Window {}
+impl<T: GlkWindow + Default> Window<T> {}
+
+#[cfg(test)]
+pub mod testwin {
+    use super::*;
+
+    #[derive(Debug)]
+    pub struct GlkTestWindow {
+        pub width: u32,
+        pub height: u32,
+    }
+
+    impl Default for GlkTestWindow {
+        fn default() -> Self {
+            Self {
+                width: 12,
+                height: 17,
+            }
+        }
+    }
+
+    impl super::GlkWindow for GlkTestWindow {
+        fn get_size(&self) -> WindowSize {
+            WindowSize {
+                width: self.width,
+                height: self.height,
+            }
+        }
+    }
+}
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use testwin::*;
 
     #[test]
     fn can_create_window() {
-        let winsys = WindowManager::default();
+        let winsys = WindowManager::<GlkTestWindow>::default();
 
         let win = winsys.open_window(WindowType::TextBuffer, 32);
         assert_eq!(win.get_type(), WindowType::TextBuffer);
@@ -344,7 +401,7 @@ mod test {
 
     #[test]
     fn can_split_window() {
-        let winsys = WindowManager::default();
+        let winsys = WindowManager::<GlkTestWindow>::default();
         let root_win = winsys.open_window(WindowType::TextBuffer, 32);
 
         let method = WindowSplitMethod {
@@ -367,7 +424,7 @@ mod test {
 
     #[test]
     fn can_split_multiple_times() {
-        let winsys = WindowManager::default();
+        let winsys = WindowManager::<GlkTestWindow>::default();
 
         let method = WindowSplitMethod {
             position: WindowSplitPosition::Above,
@@ -388,7 +445,7 @@ mod test {
 
     #[test]
     fn can_destroy_window() {
-        let winsys = WindowManager::default();
+        let winsys = WindowManager::<GlkTestWindow>::default();
 
         let method = WindowSplitMethod {
             position: WindowSplitPosition::Above,
@@ -414,5 +471,14 @@ mod test {
         winsys._dump();
 
         assert_eq!(window_a.get_sibling().unwrap().get_rock(), 34);
+    }
+
+    #[test]
+    fn can_retrieve_window_size() {
+        let winsys = WindowManager::<GlkTestWindow>::default();
+        let root_window = winsys.open_window(WindowType::TextBuffer, 32);
+        let size = root_window.get_size();
+        assert_eq!(size.width, 12);
+        assert_eq!(size.height, 17);
     }
 }
