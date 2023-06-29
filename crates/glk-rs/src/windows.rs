@@ -40,12 +40,8 @@ impl<T: GlkWindow + Default> WindowManager<T> {
         let root_win = WindowRef {
             winref: Rc::new(RefCell::new(Window {
                 wintype,
-                method: None,
                 rock,
-                parent: None,
-                child1: None,
-                child2: None,
-                window: T::default(),
+                ..Window::default()
             })),
         };
         root_win
@@ -116,10 +112,7 @@ impl<T: GlkWindow + Default> WindowRef<T> {
                     wintype,
                     method,
                     rock,
-                    parent: None,
-                    child1: None,
-                    child2: None,
-                    window: T::default(),
+                    ..Window::default()
                 })),
             };
             self.winref.borrow_mut().child1.replace(child.make_clone());
@@ -129,12 +122,8 @@ impl<T: GlkWindow + Default> WindowRef<T> {
         let new_win = WindowRef {
             winref: Rc::new(RefCell::new(Window {
                 wintype,
-                method: None,
                 rock,
-                parent: None,
-                child1: None,
-                child2: None,
-                window: T::default(),
+                ..Window::default()
             })),
         };
 
@@ -142,11 +131,9 @@ impl<T: GlkWindow + Default> WindowRef<T> {
             winref: Rc::new(RefCell::new(Window {
                 wintype: WindowType::Pair,
                 method,
-                rock: 0,
-                parent: None,
                 child1: Some(self.make_clone()),
                 child2: Some(new_win.make_clone()),
-                window: T::default(),
+                ..Window::default()
             })),
         };
 
@@ -301,6 +288,14 @@ pub trait GlkWindow {
     fn get_size(&self) -> WindowSize;
 }
 
+#[derive(Default, Debug)]
+enum KeyWindow {
+    #[default]
+    None,
+    Child1,
+    Child2,
+}
+
 /// A glk window
 #[derive(Debug, Default)]
 pub struct Window<T: GlkWindow + Default> {
@@ -310,6 +305,7 @@ pub struct Window<T: GlkWindow + Default> {
     parent: Option<Weak<RefCell<Window<T>>>>,
     child1: Option<WindowRef<T>>,
     child2: Option<WindowRef<T>>,
+    keywin: KeyWindow,
     window: T,
 }
 
