@@ -2,6 +2,33 @@ use crate::GlkRock;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
+/// A glk window
+#[derive(Debug, Default)]
+pub struct Window<T: GlkWindow + Default> {
+    wintype: WindowType,
+    method: Option<WindowSplitMethod>,
+    rock: GlkRock,
+    parent: Option<Weak<RefCell<Window<T>>>>,
+    child1: Option<WindowRef<T>>,
+    child2: Option<WindowRef<T>>,
+    keywin: KeyWindow,
+    window: T,
+}
+
+/// Interface for a window type; implement this to create a back-end for your
+/// window.
+pub trait GlkWindow {
+    /// returns the size of the window in its measurement system
+    fn get_size(&self) -> WindowSize;
+}
+
+/// A GLK window reference
+#[derive(Debug, Default)]
+pub struct WindowRef<T: GlkWindow + Default> {
+    /// the reference to the window
+    winref: Rc<RefCell<Window<T>>>,
+}
+
 /// The stats from the window that is being closed
 #[derive(Debug, Default)]
 pub struct StreamResult {
@@ -19,13 +46,6 @@ pub struct WindowSize {
 
     /// Height of the window in its measurement system (Glk spec section 1.9)
     pub height: u32,
-}
-
-/// A GLK window reference
-#[derive(Debug, Default)]
-pub struct WindowRef<T: GlkWindow + Default> {
-    /// the reference to the window
-    winref: Rc<RefCell<Window<T>>>,
 }
 
 #[derive(Debug, Default)]
@@ -306,32 +326,12 @@ impl<T: GlkWindow + Default> WindowRef<T> {
     }
 }
 
-/// Interface for a window type; implement this to create a back-end for your
-/// window.
-pub trait GlkWindow {
-    /// returns the size of the window in its measurement system
-    fn get_size(&self) -> WindowSize;
-}
-
 #[derive(Default, Debug)]
 enum KeyWindow {
     #[default]
     None,
     Child1,
     Child2,
-}
-
-/// A glk window
-#[derive(Debug, Default)]
-pub struct Window<T: GlkWindow + Default> {
-    wintype: WindowType,
-    method: Option<WindowSplitMethod>,
-    rock: GlkRock,
-    parent: Option<Weak<RefCell<Window<T>>>>,
-    child1: Option<WindowRef<T>>,
-    child2: Option<WindowRef<T>>,
-    keywin: KeyWindow,
-    window: T,
 }
 
 /// Describes how a window should be created when splitting from an existing window
@@ -412,7 +412,7 @@ pub mod testwin {
         fn default() -> Self {
             Self {
                 width: 12,
-                height: 17,
+                height: 32,
             }
         }
     }
@@ -520,7 +520,7 @@ mod test {
         let root_window = winsys.open_window(WindowType::TextBuffer, 32);
         let size = root_window.get_size();
         assert_eq!(size.width, 12);
-        assert_eq!(size.height, 17);
+        assert_eq!(size.height, 32);
     }
 
     #[test]
@@ -540,13 +540,6 @@ mod test {
         assert_eq!(method.position, pair_method.position);
         assert_eq!(method.amount, pair_method.amount);
         assert_eq!(method.border, pair_method.border);
-
-        /* TODO: fix this for the next stream!
-        let a_method = window_a.get_arrangement().unwrap();
-        assert_eq!(WindowSplitPosition::Below, a_method.position);
-        assert_eq!(WindowSplitAmount::Proportional(80), a_method.amount);
-        assert_eq!(false, a_method.border);
-        */
     }
 
     #[test]
