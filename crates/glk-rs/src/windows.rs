@@ -133,6 +133,7 @@ impl<T: GlkWindow + Default> WindowRef<T> {
                 method,
                 child1: Some(self.make_clone()),
                 child2: Some(new_win.make_clone()),
+                keywin: KeyWindow::Child2,
                 ..Window::default()
             })),
         };
@@ -227,7 +228,7 @@ impl<T: GlkWindow + Default> WindowRef<T> {
 
     /// returns the type of this window
     pub fn get_type(&self) -> WindowType {
-        self.winref.borrow().wintype
+        self.winref.borrow().wintype.clone()
     }
 
     /// returns the rock value for this window
@@ -262,18 +263,42 @@ impl<T: GlkWindow + Default> WindowRef<T> {
     }
 
     /// changes the size of an existing split
-    pub fn set_arrangement(&self, method: WindowSplitMethod) {
-        // XXX: set this on the parent? modify the sibling?
+    pub fn set_arrangement(&self, method: WindowSplitMethod, keywin: Option<&WindowRef<T>>) {
+        if self.winref.borrow().wintype != WindowType::Pair {
+            return;
+        }
+
         self.winref.borrow_mut().method = Some(method);
+        if let Some(keywin) = keywin {
+            if Rc::ptr_eq(
+                &self.winref.borrow().child1.as_ref().unwrap().winref,
+                &keywin.winref,
+            ) {
+                self.winref.borrow_mut().keywin = KeyWindow::Child1;
+            } else {
+                self.winref.borrow_mut().keywin = KeyWindow::Child2;
+            }
+        }
     }
 
     /// returns the constraints of the window
-    pub fn get_arrangement(&self) -> Option<WindowSplitMethod> {
+    pub fn get_arrangement(&self) -> Option<(WindowSplitMethod, Option<WindowRef<T>>)> {
         // XXX: this needs to be calculated on the fly, based on how this
         // window was created (e.g. split from another?) and what its parent
         // pair window looks like
-        let method = self.get_parent()?.winref.borrow().method?;
-        Some(method.clone())
+
+        if self.winref.borrow().wintype != WindowType::Pair {
+            return None;
+        }
+
+        let method = self.winref.borrow().method.as_ref()?.clone();
+        let keywin = match self.winref.borrow().keywin {
+            KeyWindow::Child1 => Some(self.winref.borrow().child1.as_ref()?.make_clone()),
+            KeyWindow::Child2 => Some(self.winref.borrow().child2.as_ref()?.make_clone()),
+            KeyWindow::None => None,
+        };
+
+        Some((method, keywin))
     }
 
     pub(crate) fn is_ref(&self, win: &WindowRef<T>) -> bool {
@@ -310,7 +335,7 @@ pub struct Window<T: GlkWindow + Default> {
 }
 
 /// Describes how a window should be created when splitting from an existing window
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct WindowSplitMethod {
     /// Location of new window in relation to the existing window
     pub position: WindowSplitPosition,
@@ -323,7 +348,7 @@ pub struct WindowSplitMethod {
 }
 
 /// Describes where the new window should be placed in relation to the existing window
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum WindowSplitPosition {
     /// New window should be above the existing window
     Above,
@@ -339,7 +364,7 @@ pub enum WindowSplitPosition {
 }
 
 /// How the new window should be sized in relation to the existing window
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum WindowSplitAmount {
     /// New window should have a fixed number of lines/columns
     Fixed(i32),
@@ -349,7 +374,7 @@ pub enum WindowSplitAmount {
 }
 
 /// What kind of window to create
-#[derive(Debug, PartialEq, Copy, Clone, Default)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub enum WindowType {
     /// A window containing a stream of text
     TextBuffer,
@@ -511,10 +536,10 @@ mod test {
         let window_a = winsys.open_window(WindowType::TextBuffer, 32);
         let window_b = window_a.split(Some(method.clone()), WindowType::TextBuffer, 33);
 
-        let b_method = window_b.get_arrangement().unwrap();
-        assert_eq!(method.position, b_method.position);
-        assert_eq!(method.amount, b_method.amount);
-        assert_eq!(method.border, b_method.border);
+        let (pair_method, _) = window_b.get_parent().unwrap().get_arrangement().unwrap();
+        assert_eq!(method.position, pair_method.position);
+        assert_eq!(method.amount, pair_method.amount);
+        assert_eq!(method.border, pair_method.border);
 
         /* TODO: fix this for the next stream!
         let a_method = window_a.get_arrangement().unwrap();
@@ -522,5 +547,42 @@ mod test {
         assert_eq!(WindowSplitAmount::Proportional(80), a_method.amount);
         assert_eq!(false, a_method.border);
         */
+    }
+
+    #[test]
+    fn default_to_child2_for_key_window() {
+        let winsys = WindowManager::<GlkTestWindow>::default();
+
+        let method = WindowSplitMethod {
+            position: WindowSplitPosition::Above,
+            amount: WindowSplitAmount::Proportional(20),
+            border: false,
+        };
+
+        let window_a = winsys.open_window(WindowType::TextBuffer, 32);
+        let window_b = window_a.split(Some(method.clone()), WindowType::TextBuffer, 33);
+
+        let (_, keywin) = window_b.get_parent().unwrap().get_arrangement().unwrap();
+        assert!(Rc::ptr_eq(&keywin.unwrap().winref, &window_b.winref));
+    }
+
+    #[test]
+    fn can_change_key_window_to_child1() {
+        let winsys = WindowManager::<GlkTestWindow>::default();
+
+        let method = WindowSplitMethod {
+            position: WindowSplitPosition::Above,
+            amount: WindowSplitAmount::Proportional(20),
+            border: false,
+        };
+
+        let window_a = winsys.open_window(WindowType::TextBuffer, 32);
+        let _window_b = window_a.split(Some(method.clone()), WindowType::TextBuffer, 33);
+
+        let parent = window_a.get_parent().unwrap();
+        parent.set_arrangement(method.clone(), Some(&window_a));
+
+        let (_, keywin) = parent.get_arrangement().unwrap();
+        assert!(Rc::ptr_eq(&keywin.unwrap().winref, &window_a.winref));
     }
 }
