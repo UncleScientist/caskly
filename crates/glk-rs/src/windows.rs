@@ -585,4 +585,11 @@ mod test {
         let (_, keywin) = parent.get_arrangement().unwrap();
         assert!(Rc::ptr_eq(&keywin.unwrap().winref, &window_a.winref));
     }
+
+    #[test]
+    fn cannot_get_arrangement_for_non_pair_window() {
+        let winsys = WindowManager::<GlkTestWindow>::default();
+        let window_a = winsys.open_window(WindowType::TextBuffer, 32);
+        assert!(window_a.get_arrangement().is_none());
+    }
 }
