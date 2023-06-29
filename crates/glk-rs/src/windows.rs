@@ -15,6 +15,25 @@ pub struct Window<T: GlkWindow + Default> {
     window: T,
 }
 
+/// Type of window to create
+#[derive(Debug, PartialEq, Clone)]
+pub enum GlkWindowType {
+    /// A window containing a stream of text
+    TextBuffer,
+
+    /// A window containing grid-addressible characters
+    TextGrid,
+
+    /// A window that can display colored pixels
+    Graphics,
+
+    /// A blank window
+    Blank,
+
+    /// A pair window (created internally)
+    Pair,
+}
+
 /// Interface for a window type; implement this to create a back-end for your
 /// window.
 pub trait GlkWindow {
@@ -120,7 +139,7 @@ impl<T: GlkWindow + Default> WindowRef<T> {
     /// parent of the two windows. The original parent of the split window
     /// becomes the parent of the pair window, and the window being split
     /// becomes the sibling of the new window being created.
-    pub fn split(
+    pub(crate) fn split(
         &self,
         method: Option<WindowSplitMethod>,
         wintype: WindowType,
@@ -240,19 +259,26 @@ impl<T: GlkWindow + Default> WindowRef<T> {
         StreamResult::default()
     }
 
-    fn make_clone(&self) -> WindowRef<T> {
+    pub(crate) fn make_clone(&self) -> WindowRef<T> {
         WindowRef {
             winref: Rc::clone(&self.winref),
         }
     }
 
     /// returns the type of this window
-    pub fn get_type(&self) -> WindowType {
-        self.winref.borrow().wintype.clone()
+    pub(crate) fn get_type(&self) -> GlkWindowType {
+        match self.winref.borrow().wintype {
+            WindowType::Blank => GlkWindowType::Blank,
+            WindowType::TextBuffer => GlkWindowType::TextBuffer,
+            WindowType::TextGrid => GlkWindowType::TextGrid,
+            WindowType::Graphics => GlkWindowType::Graphics,
+            WindowType::Pair => GlkWindowType::Pair,
+            _ => panic!("internal window type only"),
+        }
     }
 
     /// returns the rock value for this window
-    pub fn get_rock(&self) -> GlkRock {
+    pub(crate) fn get_rock(&self) -> GlkRock {
         self.winref.borrow().rock
     }
 
@@ -373,9 +399,9 @@ pub enum WindowSplitAmount {
     Proportional(i32),
 }
 
-/// What kind of window to create
+// What kind of window to create
 #[derive(Debug, PartialEq, Clone, Default)]
-pub enum WindowType {
+pub(crate) enum WindowType {
     /// A window containing a stream of text
     TextBuffer,
 
@@ -437,7 +463,7 @@ mod test {
         let winsys = WindowManager::<GlkTestWindow>::default();
 
         let win = winsys.open_window(WindowType::TextBuffer, 32);
-        assert_eq!(win.get_type(), WindowType::TextBuffer);
+        assert_eq!(win.get_type(), GlkWindowType::TextBuffer);
     }
 
     #[test]
@@ -481,7 +507,7 @@ mod test {
         assert_eq!(sibling.get_rock(), 34);
 
         let sibling = window_b.get_sibling().unwrap();
-        assert_eq!(sibling.get_type(), WindowType::Pair);
+        assert_eq!(sibling.get_type(), GlkWindowType::Pair);
     }
 
     #[test]

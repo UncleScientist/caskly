@@ -1,7 +1,10 @@
 use crate::gestalt::OutputType;
 use crate::gestalt::*;
 use crate::keycode::Keycode;
-use crate::windows::{GlkWindow, WindowManager, WindowRef, WindowSplitMethod, WindowType};
+use crate::windows::{
+    GlkWindow, GlkWindowType, WindowManager, WindowRef, WindowSplitMethod, WindowType,
+};
+use crate::GlkRock;
 
 /// The GLK object. TODO: Insert basic usage here
 #[derive(Default, Debug)]
@@ -94,30 +97,31 @@ impl<T: GlkWindow + Default> Glk<T> {
     /// create a new window
     pub fn window_open(
         &mut self,
-        parent: Option<WindowRef<T>>,
-        wintype: WindowType,
-        _method: WindowSplitMethod,
-        rock: crate::GlkRock,
-    ) -> Option<&WindowRef<T>> {
-        // Ideally this would work similar to this:
-        // if let Some(new_win) = parent.split(wintype, method, rock) {
-        //      self.windows.push(new_win)
-        //      self.windows.last()
-        // } else {
-        //      None
-        // }
-        if !self.windows.is_empty() || parent.is_some() {
-            return None;
-        }
+        parent: Option<&WindowRef<T>>,
+        wintype: GlkWindowType,
+        method: Option<WindowSplitMethod>,
+        rock: GlkRock,
+    ) -> Option<WindowRef<T>> {
+        let wintype = match wintype {
+            GlkWindowType::Blank => WindowType::Blank,
+            GlkWindowType::TextBuffer => WindowType::TextBuffer,
+            GlkWindowType::TextGrid => WindowType::TextGrid,
+            GlkWindowType::Graphics => WindowType::Graphics,
+            GlkWindowType::Pair => return None,
+        };
 
-        if wintype != WindowType::TextBuffer {
-            return None;
-        }
+        let new_win = if let Some(parent) = parent {
+            parent.split(method, wintype, rock)
+        } else {
+            assert!(
+                self.windows.is_empty(),
+                "new windows must be split from existing ones"
+            );
+            self.winmgr.open_window(wintype, rock)
+        };
 
-        let new_win = self.winmgr.open_window(wintype, rock);
         self.windows.push(new_win);
-
-        self.windows.last()
+        Some(self.windows.last()?.make_clone())
     }
 
     /// close the given window and all of its children
@@ -126,12 +130,17 @@ impl<T: GlkWindow + Default> Glk<T> {
         win.close_window();
     }
 
-    /*
     /// get the rock value for a given window
-    pub fn window_get_rock(win: WinID) -> u32 {
+    pub fn window_get_rock(&self, win: &WindowRef<T>) -> GlkRock {
         win.get_rock()
     }
 
+    /// get the type of the window
+    pub fn window_get_type(&self, win: &WindowRef<T>) -> GlkWindowType {
+        win.get_type()
+    }
+
+    /*
     /// get the parent for this window
     pub fn window_get_parent(win: WinID) -> Option<WinID> {
         win.parent()
@@ -175,7 +184,7 @@ impl ToChar for char {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::windows::testwin::GlkTestWindow;
+    use crate::windows::{testwin::GlkTestWindow, WindowSplitAmount, WindowSplitPosition};
 
     #[test]
     fn can_get_glk_version() {
@@ -281,5 +290,54 @@ mod test {
             "",
             glk.buffer_to_title_case_uni("", TitleCaseStyle::LowercaseRest)
         );
+    }
+
+    #[test]
+    fn can_create_a_window() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+
+        let win = glk.window_open(None, GlkWindowType::TextBuffer, None, 73);
+        assert!(win.is_some());
+    }
+
+    #[test]
+    #[should_panic]
+    fn must_use_existing_window_for_splits() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+
+        glk.window_open(None, GlkWindowType::TextBuffer, None, 73);
+        glk.window_open(None, GlkWindowType::TextBuffer, None, 73);
+    }
+
+    #[test]
+    fn can_create_a_split_window() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+
+        let win = glk
+            .window_open(None, GlkWindowType::TextBuffer, None, 73)
+            .unwrap();
+        let win2 = glk.window_open(
+            Some(&win),
+            GlkWindowType::TextGrid,
+            Some(WindowSplitMethod {
+                position: WindowSplitPosition::Above,
+                amount: WindowSplitAmount::Proportional(40),
+                border: false,
+            }),
+            84,
+        );
+        assert!(win2.is_some());
+    }
+
+    #[test]
+    fn can_retrieve_window_information() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+
+        let win = glk
+            .window_open(None, GlkWindowType::TextBuffer, None, 73)
+            .unwrap();
+        assert_eq!(win.get_rock(), 73);
+        assert_eq!(glk.window_get_rock(&win), 73);
+        assert_eq!(glk.window_get_type(&win), GlkWindowType::TextBuffer);
     }
 }
