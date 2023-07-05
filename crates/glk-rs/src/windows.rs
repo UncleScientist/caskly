@@ -5,7 +5,7 @@ use std::rc::{Rc, Weak};
 /// A glk window
 #[derive(Debug, Default)]
 pub struct Window<T: GlkWindow + Default> {
-    wintype: WindowType,
+    pub(crate) wintype: WindowType,
     method: Option<WindowSplitMethod>,
     rock: GlkRock,
     parent: Option<Weak<RefCell<Window<T>>>>,
@@ -48,7 +48,7 @@ pub trait GlkWindow {
 #[derive(Debug, Default)]
 pub struct WindowRef<T: GlkWindow + Default> {
     /// the reference to the window
-    winref: Rc<RefCell<Window<T>>>,
+    pub(crate) winref: Rc<RefCell<Window<T>>>,
 }
 
 /// The stats from the window that is being closed
@@ -97,6 +97,10 @@ impl<T: GlkWindow + Default> WindowManager<T> {
             .child1
             .replace(root_win.make_clone());
         root_win
+    }
+
+    pub(crate) fn get_root(&self) -> Option<WindowRef<T>> {
+        Some(self.root.winref.borrow().child1.as_ref()?.make_clone())
     }
 
     fn _dump(&self) {

@@ -197,17 +197,25 @@ impl<T: GlkWindow + Default> Glk<T> {
         win.get_type()
     }
 
-    /*
     /// get the parent for this window
-    pub fn window_get_parent(win: WinID) -> Option<WinID> {
-        win.parent()
+    pub fn window_get_parent(&self, win: &WindowRef<T>) -> Option<WindowRef<T>> {
+        let parent = win.get_parent()?;
+        if parent.winref.borrow().wintype == WindowType::Root {
+            None
+        } else {
+            Some(parent)
+        }
     }
 
     /// get the sibling of this window
-    pub fn window_get_sibling(win: WinID) -> Option<WinID> {
-        win.sibling()
+    pub fn window_get_sibling(&self, win: &WindowRef<T>) -> Option<WindowRef<T>> {
+        win.get_sibling()
     }
-    */
+
+    /// gets the root window - if there are no windows, returns None
+    pub fn window_get_root(&self) -> Option<WindowRef<T>> {
+        self.winmgr.get_root()
+    }
 }
 
 /// determines the style of title case conversions
@@ -453,5 +461,62 @@ mod test {
         }
         assert_eq!(count, 5);
         assert_eq!([true, true, true, true, true], found);
+    }
+
+    #[test]
+    fn can_get_parent_of_window() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+        let win1 = glk
+            .window_open(None, GlkWindowType::TextBuffer, None, 73)
+            .unwrap();
+        assert!(glk.window_get_parent(&win1).is_none());
+        let win2 = glk
+            .window_open(
+                Some(&win1),
+                GlkWindowType::TextGrid,
+                Some(WindowSplitMethod {
+                    position: WindowSplitPosition::Above,
+                    amount: WindowSplitAmount::Proportional(40),
+                    border: false,
+                }),
+                84,
+            )
+            .unwrap();
+        let parent1 = glk.window_get_parent(&win2).unwrap();
+        assert_eq!(parent1.get_type(), GlkWindowType::Pair);
+    }
+
+    #[test]
+    fn can_get_sibling_of_window() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+        let win1 = glk
+            .window_open(None, GlkWindowType::TextBuffer, None, 73)
+            .unwrap();
+        assert!(glk.window_get_sibling(&win1).is_none());
+
+        let win2 = glk
+            .window_open(
+                Some(&win1),
+                GlkWindowType::TextGrid,
+                Some(WindowSplitMethod {
+                    position: WindowSplitPosition::Above,
+                    amount: WindowSplitAmount::Proportional(40),
+                    border: false,
+                }),
+                84,
+            )
+            .unwrap();
+        let sibling = glk.window_get_sibling(&win2).unwrap();
+        assert!(sibling.is_ref(&win1));
+    }
+
+    #[test]
+    fn can_get_root_window() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+        assert!(glk.window_get_root().is_none());
+        let win1 = glk
+            .window_open(None, GlkWindowType::TextBuffer, None, 73)
+            .unwrap();
+        assert!(glk.window_get_root().unwrap().is_ref(&win1));
     }
 }
