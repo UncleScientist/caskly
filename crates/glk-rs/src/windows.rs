@@ -39,6 +39,9 @@ pub enum GlkWindowType {
 pub trait GlkWindow {
     /// returns the size of the window in its measurement system
     fn get_size(&self) -> GlkWindowSize;
+
+    /// sets the location of the cursor in the window
+    fn move_cursor(&mut self, x: u32, y: u32);
 }
 
 /// A GLK window reference
@@ -348,6 +351,12 @@ impl<T: GlkWindow + Default> WindowRef<T> {
     pub(crate) fn is_ref(&self, win: &WindowRef<T>) -> bool {
         Rc::ptr_eq(&self.winref, &win.winref)
     }
+
+    pub(crate) fn move_cursor(&self, x: u32, y: u32) {
+        if self.winref.borrow().wintype == WindowType::TextGrid {
+            self.winref.borrow_mut().window.move_cursor(x, y);
+        }
+    }
 }
 
 #[derive(Default, Debug)]
@@ -430,6 +439,8 @@ pub mod testwin {
     pub struct GlkTestWindow {
         pub width: u32,
         pub height: u32,
+        pub cursor_x: u32,
+        pub cursor_y: u32,
     }
 
     impl Default for GlkTestWindow {
@@ -437,6 +448,8 @@ pub mod testwin {
             Self {
                 width: 12,
                 height: 32,
+                cursor_x: 0,
+                cursor_y: 0,
             }
         }
     }
@@ -447,6 +460,12 @@ pub mod testwin {
                 width: self.width,
                 height: self.height,
             }
+        }
+
+        fn move_cursor(&mut self, x: u32, y: u32) {
+            println!("moving cursor to {x},{y}");
+            self.cursor_x = x;
+            self.cursor_y = y;
         }
     }
 }
@@ -608,5 +627,26 @@ mod test {
         let winsys = WindowManager::<GlkTestWindow>::default();
         let window_a = winsys.open_window(WindowType::TextBuffer, 32);
         assert!(window_a.get_arrangement().is_none());
+    }
+
+    #[test]
+    fn can_move_cursor_in_a_window() {
+        let winsys = WindowManager::<GlkTestWindow>::default();
+        let window_a = winsys.open_window(WindowType::TextBuffer, 32);
+
+        let method = WindowSplitMethod {
+            position: WindowSplitPosition::Above,
+            amount: WindowSplitAmount::Proportional(20),
+            border: false,
+        };
+        let window_b = window_a.split(Some(method), WindowType::TextGrid, 55);
+
+        // text buffers do not use move_cursor
+        window_a.move_cursor(4, 4);
+        assert_eq!(window_a.winref.borrow().window.cursor_x, 0);
+
+        // text grid windows DO move the cursor
+        window_b.move_cursor(4, 4);
+        assert_eq!(window_b.winref.borrow().window.cursor_x, 4);
     }
 }

@@ -166,6 +166,15 @@ impl<T: GlkWindow + Default> Glk<T> {
         }
     }
 
+    /*
+     * Section 3.5.4 - Text Grid Windows
+     */
+
+    /// Move the cursor in a text grid window (all other window types ignore this API)
+    pub fn window_move_cursor(&self, win: &WindowRef<T>, xpos: u32, ypos: u32) {
+        win.move_cursor(xpos, ypos);
+    }
+
     /// get the rock value for a given window
     pub fn window_get_rock(&self, win: &WindowRef<T>) -> GlkRock {
         win.get_rock()
