@@ -116,7 +116,9 @@ impl<T: GlkWindow + Default> Glk<T> {
         };
 
         let new_win = if let Some(parent) = parent {
-            parent.split(method, wintype, rock)
+            let (pair, win) = parent.split(method, wintype, rock);
+            self.windows.push(pair);
+            win
         } else {
             assert!(
                 self.windows.is_empty(),
@@ -173,6 +175,16 @@ impl<T: GlkWindow + Default> Glk<T> {
     /// Move the cursor in a text grid window (all other window types ignore this API)
     pub fn window_move_cursor(&self, win: &WindowRef<T>, xpos: u32, ypos: u32) {
         win.move_cursor(xpos, ypos);
+    }
+
+    /*
+     * Section 3.7 - Other Window Functions
+     */
+
+    /// iterate through all the windows
+    pub fn window_iterate(&self) -> std::slice::Iter<WindowRef<T>> {
+        // should we be doing this with Iter<&WindowRef<T>> instead?
+        self.windows.iter()
     }
 
     /// get the rock value for a given window
@@ -384,5 +396,62 @@ mod test {
         assert_eq!(win.get_rock(), 73);
         assert_eq!(glk.window_get_rock(&win), 73);
         assert_eq!(glk.window_get_type(&win), GlkWindowType::TextBuffer);
+    }
+
+    #[test]
+    fn can_iterate_windows() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+        let win1 = glk
+            .window_open(None, GlkWindowType::TextBuffer, None, 73)
+            .unwrap();
+        let win2 = glk
+            .window_open(
+                Some(&win1),
+                GlkWindowType::TextGrid,
+                Some(WindowSplitMethod {
+                    position: WindowSplitPosition::Above,
+                    amount: WindowSplitAmount::Proportional(40),
+                    border: false,
+                }),
+                84,
+            )
+            .unwrap();
+        let win3 = glk
+            .window_open(
+                Some(&win2),
+                GlkWindowType::TextGrid,
+                Some(WindowSplitMethod {
+                    position: WindowSplitPosition::Below,
+                    amount: WindowSplitAmount::Fixed(3),
+                    border: false,
+                }),
+                95,
+            )
+            .unwrap();
+
+        // pair1, pair2, win1, win2, win3
+        let mut found = [false, false, false, false, false];
+        let mut i = glk.window_iterate();
+        let mut count = 0;
+        let mut found_pair = None;
+        while let Some(win) = i.next() {
+            count += 1;
+            if win.is_ref(&win1) {
+                found[2] = true;
+            } else if win.is_ref(&win2) {
+                found[3] = true;
+            } else if win.is_ref(&win3) {
+                found[4] = true;
+            } else if found_pair.is_none() {
+                found_pair = Some(win.make_clone());
+                found[0] = true;
+            } else if let Some(ref f) = found_pair {
+                if !f.is_ref(&win) {
+                    found[1] = true;
+                }
+            }
+        }
+        assert_eq!(count, 5);
+        assert_eq!([true, true, true, true, true], found);
     }
 }

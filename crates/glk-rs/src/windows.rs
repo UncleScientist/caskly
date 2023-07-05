@@ -142,24 +142,17 @@ impl<T: GlkWindow + Default> WindowRef<T> {
     /// parent of the two windows. The original parent of the split window
     /// becomes the parent of the pair window, and the window being split
     /// becomes the sibling of the new window being created.
+    ///
+    /// This returns a tuple: the first entry in the tuple contains the pairwin
+    /// (if one was created), and the second contains the actual window requested
+    /// by the api
     pub(crate) fn split(
         &self,
         method: Option<WindowSplitMethod>,
         wintype: WindowType,
         rock: GlkRock,
-    ) -> WindowRef<T> {
-        if self.winref.borrow().wintype == WindowType::Root {
-            let child = WindowRef {
-                winref: Rc::new(RefCell::new(Window {
-                    wintype,
-                    method,
-                    rock,
-                    ..Window::default()
-                })),
-            };
-            self.winref.borrow_mut().child1.replace(child.make_clone());
-            return child;
-        }
+    ) -> (WindowRef<T>, WindowRef<T>) {
+        assert!(self.winref.borrow().wintype != WindowType::Root);
 
         let new_win = WindowRef {
             winref: Rc::new(RefCell::new(Window {
@@ -202,7 +195,7 @@ impl<T: GlkWindow + Default> WindowRef<T> {
         new_win.winref.borrow_mut().parent = Some(Rc::downgrade(&pair_win.winref));
         pair_win.winref.borrow_mut().parent = Some(Rc::downgrade(&old_parent));
 
-        new_win
+        (pair_win, new_win)
     }
 
     fn clean_tree(&mut self) {
@@ -494,7 +487,7 @@ mod test {
             border: false,
         };
 
-        let split = root_win.split(Some(method), WindowType::TextBuffer, 65);
+        let (_, split) = root_win.split(Some(method), WindowType::TextBuffer, 65);
 
         let parent = split.get_parent().unwrap();
         assert_eq!(parent.get_rock(), 0);
@@ -517,8 +510,8 @@ mod test {
         };
 
         let window_a = winsys.open_window(WindowType::TextBuffer, 32);
-        let window_b = window_a.split(Some(method.clone()), WindowType::TextBuffer, 33);
-        let _window_c = window_a.split(Some(method.clone()), WindowType::TextBuffer, 34);
+        let (_, window_b) = window_a.split(Some(method.clone()), WindowType::TextBuffer, 33);
+        let (_, _) = window_a.split(Some(method.clone()), WindowType::TextBuffer, 34);
 
         let sibling = window_a.get_sibling().unwrap();
         assert_eq!(sibling.get_rock(), 34);
@@ -538,10 +531,10 @@ mod test {
         };
 
         let window_a = winsys.open_window(WindowType::TextBuffer, 32);
-        let _window_b = window_a.split(Some(method.clone()), WindowType::TextBuffer, 33);
+        let (_, _) = window_a.split(Some(method.clone()), WindowType::TextBuffer, 33);
 
-        let window_c = window_a.split(Some(method.clone()), WindowType::TextBuffer, 34);
-        let window_d = window_c.split(Some(method.clone()), WindowType::TextBuffer, 35);
+        let (_, window_c) = window_a.split(Some(method.clone()), WindowType::TextBuffer, 34);
+        let (_, window_d) = window_c.split(Some(method.clone()), WindowType::TextBuffer, 35);
 
         let parent = window_d.get_parent().unwrap();
         let sibling = parent.get_sibling().unwrap();
@@ -577,7 +570,7 @@ mod test {
         };
 
         let window_a = winsys.open_window(WindowType::TextBuffer, 32);
-        let window_b = window_a.split(Some(method.clone()), WindowType::TextBuffer, 33);
+        let (_, window_b) = window_a.split(Some(method.clone()), WindowType::TextBuffer, 33);
 
         let (pair_method, _) = window_b.get_parent().unwrap().get_arrangement().unwrap();
         assert_eq!(method.position, pair_method.position);
@@ -596,7 +589,7 @@ mod test {
         };
 
         let window_a = winsys.open_window(WindowType::TextBuffer, 32);
-        let window_b = window_a.split(Some(method.clone()), WindowType::TextBuffer, 33);
+        let (_, window_b) = window_a.split(Some(method.clone()), WindowType::TextBuffer, 33);
 
         let (_, keywin) = window_b.get_parent().unwrap().get_arrangement().unwrap();
         assert!(Rc::ptr_eq(&keywin.unwrap().winref, &window_b.winref));
@@ -613,7 +606,7 @@ mod test {
         };
 
         let window_a = winsys.open_window(WindowType::TextBuffer, 32);
-        let _window_b = window_a.split(Some(method.clone()), WindowType::TextBuffer, 33);
+        let (_, _) = window_a.split(Some(method.clone()), WindowType::TextBuffer, 33);
 
         let parent = window_a.get_parent().unwrap();
         parent.set_arrangement(method.clone(), Some(&window_a));
@@ -639,7 +632,7 @@ mod test {
             amount: WindowSplitAmount::Proportional(20),
             border: false,
         };
-        let window_b = window_a.split(Some(method), WindowType::TextGrid, 55);
+        let (_, window_b) = window_a.split(Some(method), WindowType::TextGrid, 55);
 
         // text buffers do not use move_cursor
         window_a.move_cursor(4, 4);
