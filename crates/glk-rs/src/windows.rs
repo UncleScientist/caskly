@@ -38,7 +38,7 @@ pub enum GlkWindowType {
 /// window.
 pub trait GlkWindow {
     /// returns the size of the window in its measurement system
-    fn get_size(&self) -> WindowSize;
+    fn get_size(&self) -> GlkWindowSize;
 }
 
 /// A GLK window reference
@@ -59,7 +59,7 @@ pub struct StreamResult {
 
 /// The size of a window
 #[derive(Debug, Default)]
-pub struct WindowSize {
+pub struct GlkWindowSize {
     /// Width of the window in its measurement system (Glk spec section 1.9)
     pub width: u32,
 
@@ -303,13 +303,11 @@ impl<T: GlkWindow + Default> WindowRef<T> {
         }
     }
 
-    /// Get the size of the window in its measurement system (Glk Spec section 1.9)
-    pub fn get_size(&self) -> WindowSize {
+    pub(crate) fn get_size(&self) -> GlkWindowSize {
         self.winref.borrow().window.get_size()
     }
 
-    /// changes the size of an existing split
-    pub fn set_arrangement(&self, method: WindowSplitMethod, keywin: Option<&WindowRef<T>>) {
+    pub(crate) fn set_arrangement(&self, method: WindowSplitMethod, keywin: Option<&WindowRef<T>>) {
         if self.winref.borrow().wintype != WindowType::Pair {
             return;
         }
@@ -328,7 +326,7 @@ impl<T: GlkWindow + Default> WindowRef<T> {
     }
 
     /// returns the constraints of the window
-    pub fn get_arrangement(&self) -> Option<(WindowSplitMethod, Option<WindowRef<T>>)> {
+    pub(crate) fn get_arrangement(&self) -> Option<(WindowSplitMethod, Option<WindowRef<T>>)> {
         // XXX: this needs to be calculated on the fly, based on how this
         // window was created (e.g. split from another?) and what its parent
         // pair window looks like
@@ -444,8 +442,8 @@ pub mod testwin {
     }
 
     impl super::GlkWindow for GlkTestWindow {
-        fn get_size(&self) -> WindowSize {
-            WindowSize {
+        fn get_size(&self) -> GlkWindowSize {
+            GlkWindowSize {
                 width: self.width,
                 height: self.height,
             }

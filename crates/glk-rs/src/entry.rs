@@ -2,11 +2,13 @@ use crate::gestalt::OutputType;
 use crate::gestalt::*;
 use crate::keycode::Keycode;
 use crate::windows::{
-    GlkWindow, GlkWindowType, WindowManager, WindowRef, WindowSplitMethod, WindowType,
+    GlkWindow, GlkWindowSize, GlkWindowType, WindowManager, WindowRef, WindowSplitMethod,
+    WindowType,
 };
 use crate::GlkRock;
 
 /// The GLK object. TODO: Insert basic usage here
+/// This is the API for GLK interpreted as a Rust API.
 #[derive(Default, Debug)]
 pub struct Glk<T: GlkWindow + Default> {
     windows: Vec<WindowRef<T>>,
@@ -94,6 +96,9 @@ impl<T: GlkWindow + Default> Glk<T> {
         result
     }
 
+    /*
+     * Glk Section 3.2 - Window Opening, Closing, and Constraints
+     */
     /// create a new window
     pub fn window_open(
         &mut self,
@@ -128,6 +133,37 @@ impl<T: GlkWindow + Default> Glk<T> {
     pub fn window_close(&mut self, win: &WindowRef<T>) {
         self.windows.retain(|w| !w.is_ref(win));
         win.close_window();
+    }
+
+    /*
+     * Glk Spec section 3.3 - Changing Window Constraints
+     */
+
+    /// get the actual size of the window, in its measurement system
+    pub fn window_get_size(&self, win: &WindowRef<T>) -> GlkWindowSize {
+        win.get_size()
+    }
+
+    /// Get the size of the window in its measurement system (Glk Spec section 1.9)
+    pub fn window_set_arrangement(
+        &self,
+        win: &WindowRef<T>,
+        method: WindowSplitMethod,
+        keywin: Option<&WindowRef<T>>,
+    ) {
+        win.set_arrangement(method, keywin);
+    }
+
+    /// returns the constraints of the window
+    pub fn window_get_arrangement(
+        &self,
+        win: &WindowRef<T>,
+    ) -> (Option<WindowSplitMethod>, Option<WindowRef<T>>) {
+        if let Some((method, keywin)) = win.get_arrangement() {
+            (Some(method), keywin)
+        } else {
+            (None, None)
+        }
     }
 
     /// get the rock value for a given window
