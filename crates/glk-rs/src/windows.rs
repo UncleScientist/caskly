@@ -42,6 +42,9 @@ pub trait GlkWindow {
 
     /// sets the location of the cursor in the window
     fn move_cursor(&mut self, x: u32, y: u32);
+
+    /// clear a window - the way windows get cleared depends on their GlkWindowType
+    fn clear(&mut self);
 }
 
 /// A GLK window reference
@@ -354,6 +357,10 @@ impl<T: GlkWindow + Default> WindowRef<T> {
             self.winref.borrow_mut().window.move_cursor(x, y);
         }
     }
+
+    pub(crate) fn clear(&self) {
+        self.winref.borrow_mut().window.clear();
+    }
 }
 
 #[derive(Default, Debug)]
@@ -463,6 +470,11 @@ pub mod testwin {
             println!("moving cursor to {x},{y}");
             self.cursor_x = x;
             self.cursor_y = y;
+        }
+
+        fn clear(&mut self) {
+            self.cursor_x = 0;
+            self.cursor_y = 0;
         }
     }
 }
@@ -645,5 +657,15 @@ mod test {
         // text grid windows DO move the cursor
         window_b.move_cursor(4, 4);
         assert_eq!(window_b.winref.borrow().window.cursor_x, 4);
+    }
+
+    #[test]
+    fn can_clear_window() {
+        let winsys = WindowManager::<GlkTestWindow>::default();
+        let window_a = winsys.open_window(WindowType::TextGrid, 32);
+        window_a.move_cursor(5, 5);
+        assert_eq!(window_a.winref.borrow().window.cursor_x, 5);
+        window_a.clear();
+        assert_eq!(window_a.winref.borrow().window.cursor_x, 0);
     }
 }

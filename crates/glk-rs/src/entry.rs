@@ -216,6 +216,11 @@ impl<T: GlkWindow + Default> Glk<T> {
     pub fn window_get_root(&self) -> Option<WindowRef<T>> {
         self.winmgr.get_root()
     }
+
+    /// clears the window
+    pub fn window_clear(&self, win: &WindowRef<T>) {
+        win.clear()
+    }
 }
 
 /// determines the style of title case conversions
