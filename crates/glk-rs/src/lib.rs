@@ -17,3 +17,6 @@ pub mod keycode;
 
 /// Windowing subsystem
 pub mod windows;
+
+/// Streams
+pub(crate) mod stream;
