@@ -1,3 +1,4 @@
+use crate::stream::{GlkStreamID, StreamHandler};
 use crate::GlkRock;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -12,7 +13,11 @@ pub struct Window<T: GlkWindow + Default> {
     child1: Option<WindowRef<T>>,
     child2: Option<WindowRef<T>>,
     keywin: KeyWindow,
+    #[cfg(test)]
+    pub window: T,
+    #[cfg(not(test))]
     window: T,
+    stream: GlkStreamID,
 }
 
 /// Type of window to create
@@ -36,7 +41,7 @@ pub enum GlkWindowType {
 
 /// Interface for a window type; implement this to create a back-end for your
 /// window.
-pub trait GlkWindow {
+pub trait GlkWindow: StreamHandler {
     /// returns the size of the window in its measurement system
     fn get_size(&self) -> GlkWindowSize;
 
@@ -361,6 +366,10 @@ impl<T: GlkWindow + Default> WindowRef<T> {
     pub(crate) fn clear(&self) {
         self.winref.borrow_mut().window.clear();
     }
+
+    pub(crate) fn get_stream(&self) -> GlkStreamID {
+        self.winref.borrow().stream
+    }
 }
 
 #[derive(Default, Debug)]
@@ -445,6 +454,7 @@ pub mod testwin {
         pub height: u32,
         pub cursor_x: u32,
         pub cursor_y: u32,
+        pub textdata: String,
     }
 
     impl Default for GlkTestWindow {
@@ -454,8 +464,21 @@ pub mod testwin {
                 height: 32,
                 cursor_x: 0,
                 cursor_y: 0,
+                textdata: String::new(),
             }
         }
+    }
+
+    impl StreamHandler for GlkTestWindow {
+        fn put_char(&mut self, ch: u8) {
+            println!("test window: put char");
+            self.textdata.push(ch as char);
+        }
+
+        fn put_string(&self, _s: &str) {}
+        fn put_buffer(&self, _buf: &[u8]) {}
+        fn put_char_uni(&self, _ch: char) {}
+        fn put_buffer_uni(&self, _buf: &[char]) {}
     }
 
     impl super::GlkWindow for GlkTestWindow {
@@ -668,4 +691,14 @@ mod test {
         window_a.clear();
         assert_eq!(window_a.winref.borrow().window.cursor_x, 0);
     }
+
+    /*
+    #[test]
+    fn can_put_character_in_window() {
+        let winsys = WindowManager::<GlkTestWindow>::default();
+        let win = winsys.open_window(WindowType::TextGrid, 32);
+        win.put_char(b'a');
+        assert_eq!(win.winref.borrow().window.textdata, "a");
+    }
+    */
 }
