@@ -233,35 +233,41 @@ impl<T: GlkWindow + Default> Glk<T> {
     }
 
     /// write a byte to a stream
-    pub fn put_char(&self, streamid: GlkStreamID, ch: u8) {
+    pub fn put_char_stream(&self, streamid: GlkStreamID, ch: u8) {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.put_char(ch);
         }
     }
 
     /// write a unicode string to a stream
-    pub fn put_string(&self, streamid: GlkStreamID, s: &str) {
+    pub fn put_string_stream(&self, streamid: GlkStreamID, s: &str) {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.put_string(s);
         }
     }
 
+    /// write a unicode string to a stream - same as put_string_stream() in rust because
+    /// all strings are unicode in rust
+    pub fn put_string_stream_uni(&self, streamid: GlkStreamID, s: &str) {
+        self.put_string_stream(streamid, s);
+    }
+
     /// write a buffer of bytes to a stream
-    pub fn put_buffer(&self, streamid: GlkStreamID, buf: &[u8]) {
+    pub fn put_buffer_stream(&self, streamid: GlkStreamID, buf: &[u8]) {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.put_buffer(buf);
         }
     }
 
     /// write a unicode character to a stream
-    pub fn put_char_uni(&self, streamid: GlkStreamID, ch: char) {
+    pub fn put_char_stream_uni(&self, streamid: GlkStreamID, ch: char) {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.put_char_uni(ch);
         }
     }
 
     /// write a buffer of unicode characters to a stream
-    pub fn put_buffer_uni(&self, streamid: GlkStreamID, buf: &[char]) {
+    pub fn put_buffer_stream_uni(&self, streamid: GlkStreamID, buf: &[char]) {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.put_buffer_uni(buf);
         }
@@ -577,7 +583,7 @@ mod test {
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
         let stream = glk.window_get_stream(&win);
-        glk.put_char(stream, b'x');
+        glk.put_char_stream(stream, b'x');
         assert_eq!(win.winref.borrow().window.borrow().textdata, "x");
     }
 
@@ -604,8 +610,8 @@ mod test {
         let stream1 = glk.window_get_stream(&win1);
         let stream2 = glk.window_get_stream(&win2);
 
-        glk.put_char(stream1, b'A');
-        glk.put_char(stream2, b'B');
+        glk.put_char_stream(stream1, b'A');
+        glk.put_char_stream(stream2, b'B');
 
         assert_eq!(win1.winref.borrow().window.borrow().textdata, "A");
         assert_eq!(win2.winref.borrow().window.borrow().textdata, "B");
@@ -618,7 +624,7 @@ mod test {
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
         let stream = glk.window_get_stream(&win);
-        glk.put_string(stream, &"hello, world!");
+        glk.put_string_stream(stream, &"hello, world!");
         assert_eq!(
             win.winref.borrow().window.borrow().textdata,
             "hello, world!"
@@ -632,7 +638,7 @@ mod test {
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
         let stream = glk.window_get_stream(&win);
-        glk.put_buffer(stream, &[b'0', b'1', b'2', b'3']);
+        glk.put_buffer_stream(stream, &[b'0', b'1', b'2', b'3']);
         assert_eq!(win.winref.borrow().window.borrow().textdata, "0123");
     }
 
@@ -643,7 +649,7 @@ mod test {
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
         let stream = glk.window_get_stream(&win);
-        glk.put_char_uni(stream, 'q');
+        glk.put_char_stream_uni(stream, 'q');
         assert_eq!(win.winref.borrow().window.borrow().textdata, "q");
     }
 
@@ -654,7 +660,7 @@ mod test {
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
         let stream = glk.window_get_stream(&win);
-        glk.put_buffer_uni(stream, &['q', 'r', 's', 't', 'u', 'v']);
+        glk.put_buffer_stream_uni(stream, &['q', 'r', 's', 't', 'u', 'v']);
         assert_eq!(win.winref.borrow().window.borrow().textdata, "qrstuv");
     }
 }
