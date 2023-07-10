@@ -482,10 +482,21 @@ pub mod testwin {
             self.textdata.push(ch as char);
         }
 
-        fn put_string(&self, _s: &str) {}
-        fn put_buffer(&self, _buf: &[u8]) {}
-        fn put_char_uni(&self, _ch: char) {}
-        fn put_buffer_uni(&self, _buf: &[char]) {}
+        fn put_char_uni(&mut self, ch: char) {
+            self.textdata.push(ch);
+        }
+
+        fn put_string(&mut self, s: &str) {
+            self.textdata.push_str(s);
+        }
+
+        fn put_buffer(&mut self, buf: &[u8]) {
+            self.textdata.extend(buf.iter().map(|a| *a as char));
+        }
+
+        fn put_buffer_uni(&mut self, buf: &[char]) {
+            self.textdata.extend(buf.iter());
+        }
     }
 
     impl super::GlkWindow for GlkTestWindow {

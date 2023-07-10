@@ -238,6 +238,34 @@ impl<T: GlkWindow + Default> Glk<T> {
             stream.put_char(ch);
         }
     }
+
+    /// write a unicode string to a stream
+    pub fn put_string(&self, streamid: GlkStreamID, s: &str) {
+        if let Some(stream) = self.stream_mgr.get(streamid) {
+            stream.put_string(s);
+        }
+    }
+
+    /// write a buffer of bytes to a stream
+    pub fn put_buffer(&self, streamid: GlkStreamID, buf: &[u8]) {
+        if let Some(stream) = self.stream_mgr.get(streamid) {
+            stream.put_buffer(buf);
+        }
+    }
+
+    /// write a unicode character to a stream
+    pub fn put_char_uni(&self, streamid: GlkStreamID, ch: char) {
+        if let Some(stream) = self.stream_mgr.get(streamid) {
+            stream.put_char_uni(ch);
+        }
+    }
+
+    /// write a buffer of unicode characters to a stream
+    pub fn put_buffer_uni(&self, streamid: GlkStreamID, buf: &[char]) {
+        if let Some(stream) = self.stream_mgr.get(streamid) {
+            stream.put_buffer_uni(buf);
+        }
+    }
 }
 
 /// determines the style of title case conversions
@@ -581,5 +609,52 @@ mod test {
 
         assert_eq!(win1.winref.borrow().window.borrow().textdata, "A");
         assert_eq!(win2.winref.borrow().window.borrow().textdata, "B");
+    }
+
+    #[test]
+    fn can_put_string_into_window() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+        let win = glk
+            .window_open(None, GlkWindowType::TextBuffer, None, 73)
+            .unwrap();
+        let stream = glk.window_get_stream(&win);
+        glk.put_string(stream, &"hello, world!");
+        assert_eq!(
+            win.winref.borrow().window.borrow().textdata,
+            "hello, world!"
+        );
+    }
+
+    #[test]
+    fn can_put_buffer_into_window() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+        let win = glk
+            .window_open(None, GlkWindowType::TextBuffer, None, 73)
+            .unwrap();
+        let stream = glk.window_get_stream(&win);
+        glk.put_buffer(stream, &[b'0', b'1', b'2', b'3']);
+        assert_eq!(win.winref.borrow().window.borrow().textdata, "0123");
+    }
+
+    #[test]
+    fn can_put_unicode_char_into_window() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+        let win = glk
+            .window_open(None, GlkWindowType::TextBuffer, None, 73)
+            .unwrap();
+        let stream = glk.window_get_stream(&win);
+        glk.put_char_uni(stream, 'q');
+        assert_eq!(win.winref.borrow().window.borrow().textdata, "q");
+    }
+
+    #[test]
+    fn can_put_unicode_buf_into_window() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+        let win = glk
+            .window_open(None, GlkWindowType::TextBuffer, None, 73)
+            .unwrap();
+        let stream = glk.window_get_stream(&win);
+        glk.put_buffer_uni(stream, &['q', 'r', 's', 't', 'u', 'v']);
+        assert_eq!(win.winref.borrow().window.borrow().textdata, "qrstuv");
     }
 }

@@ -39,13 +39,29 @@ impl GlkStream {
     pub fn put_char(&self, ch: u8) {
         self.output.borrow_mut().put_char(ch);
     }
+
+    pub fn put_string(&self, s: &str) {
+        self.output.borrow_mut().put_string(s);
+    }
+
+    pub fn put_buffer(&self, buf: &[u8]) {
+        self.output.borrow_mut().put_buffer(buf);
+    }
+
+    pub fn put_char_uni(&self, ch: char) {
+        self.output.borrow_mut().put_char_uni(ch);
+    }
+
+    pub fn put_buffer_uni(&self, buf: &[char]) {
+        self.output.borrow_mut().put_buffer_uni(buf);
+    }
 }
 
 pub trait StreamHandler: Debug {
     fn put_char(&mut self, ch: u8);
-    fn put_string(&self, s: &str);
-    fn put_buffer(&self, buf: &[u8]);
-    fn put_char_uni(&self, ch: char);
+    fn put_string(&mut self, s: &str);
+    fn put_buffer(&mut self, buf: &[u8]);
+    fn put_char_uni(&mut self, ch: char);
     // note: put_string_uni() is not here because put_string() handles it
-    fn put_buffer_uni(&self, buf: &[char]);
+    fn put_buffer_uni(&mut self, buf: &[char]);
 }
