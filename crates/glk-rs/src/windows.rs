@@ -14,9 +14,9 @@ pub struct Window<T: GlkWindow + Default> {
     child2: Option<WindowRef<T>>,
     keywin: KeyWindow,
     #[cfg(test)]
-    pub window: T,
+    pub window: Rc<RefCell<T>>,
     #[cfg(not(test))]
-    window: T,
+    window: Rc<RefCell<T>>,
     stream: GlkStreamID,
 }
 
@@ -117,6 +117,14 @@ impl<T: GlkWindow + Default> WindowManager<T> {
 }
 
 impl<T: GlkWindow + Default> WindowRef<T> {
+    pub(crate) fn get_winref(&self) -> Rc<RefCell<T>> {
+        Rc::clone(&self.winref.borrow().window)
+    }
+
+    pub(crate) fn set_stream_id(&self, sid: GlkStreamID) {
+        self.winref.borrow_mut().stream = sid;
+    }
+
     fn _dump(&self, indent: usize) {
         println!(
             "{:indent$}{:?} ({}) [parent = {:?}]",
@@ -312,7 +320,7 @@ impl<T: GlkWindow + Default> WindowRef<T> {
     }
 
     pub(crate) fn get_size(&self) -> GlkWindowSize {
-        self.winref.borrow().window.get_size()
+        self.winref.borrow().window.borrow().get_size()
     }
 
     pub(crate) fn set_arrangement(&self, method: WindowSplitMethod, keywin: Option<&WindowRef<T>>) {
@@ -359,12 +367,12 @@ impl<T: GlkWindow + Default> WindowRef<T> {
 
     pub(crate) fn move_cursor(&self, x: u32, y: u32) {
         if self.winref.borrow().wintype == WindowType::TextGrid {
-            self.winref.borrow_mut().window.move_cursor(x, y);
+            self.winref.borrow().window.borrow_mut().move_cursor(x, y);
         }
     }
 
     pub(crate) fn clear(&self) {
-        self.winref.borrow_mut().window.clear();
+        self.winref.borrow().window.borrow_mut().clear();
     }
 
     pub(crate) fn get_stream(&self) -> GlkStreamID {
@@ -675,11 +683,11 @@ mod test {
 
         // text buffers do not use move_cursor
         window_a.move_cursor(4, 4);
-        assert_eq!(window_a.winref.borrow().window.cursor_x, 0);
+        assert_eq!(window_a.winref.borrow().window.borrow().cursor_x, 0);
 
         // text grid windows DO move the cursor
         window_b.move_cursor(4, 4);
-        assert_eq!(window_b.winref.borrow().window.cursor_x, 4);
+        assert_eq!(window_b.winref.borrow().window.borrow().cursor_x, 4);
     }
 
     #[test]
@@ -687,9 +695,9 @@ mod test {
         let winsys = WindowManager::<GlkTestWindow>::default();
         let window_a = winsys.open_window(WindowType::TextGrid, 32);
         window_a.move_cursor(5, 5);
-        assert_eq!(window_a.winref.borrow().window.cursor_x, 5);
+        assert_eq!(window_a.winref.borrow().window.borrow().cursor_x, 5);
         window_a.clear();
-        assert_eq!(window_a.winref.borrow().window.cursor_x, 0);
+        assert_eq!(window_a.winref.borrow().window.borrow().cursor_x, 0);
     }
 
     /*
