@@ -15,6 +15,7 @@ pub struct Glk<T: GlkWindow + Default + 'static> {
     windows: Vec<WindowRef<T>>,
     winmgr: WindowManager<T>,
     stream_mgr: StreamManager,
+    default_stream: Option<GlkStreamID>,
 }
 
 trait ValidGlkChar {
@@ -230,6 +231,64 @@ impl<T: GlkWindow + Default> Glk<T> {
     /// get the stream associated with a window
     pub fn window_get_stream(&self, win: &WindowRef<T>) -> GlkStreamID {
         win.get_stream()
+    }
+
+    /*
+     * Section 5 - Streams
+     */
+
+    /// set the current stream, or None to disable
+    pub fn stream_set_current(&mut self, streamid: GlkStreamID) {
+        self.default_stream = Some(streamid)
+    }
+
+    /// get the current stream, or None if no stream is set
+    pub fn stream_get_current(&self) -> Option<GlkStreamID> {
+        self.default_stream
+    }
+
+    /*
+     * Section 5.1. How to Print
+     */
+
+    /// write a byte to the default stream
+    pub fn put_char(&self, ch: u8) {
+        if let Some(stream) = self.default_stream {
+            self.put_char_stream(stream, ch);
+        }
+    }
+
+    /// write a string to the default stream
+    pub fn put_string(&self, s: &str) {
+        if let Some(stream) = self.default_stream {
+            self.put_string_stream(stream, s);
+        }
+    }
+
+    /// write a string to the default stream
+    pub fn put_string_uni(&self, s: &str) {
+        self.put_string(s);
+    }
+
+    /// write a byte buffer to the default stream
+    pub fn put_buffer(&self, buf: &[u8]) {
+        if let Some(stream) = self.default_stream {
+            self.put_buffer_stream(stream, buf);
+        }
+    }
+
+    /// write a unicode character to the default stream
+    pub fn put_char_uni(&self, ch: char) {
+        if let Some(stream) = self.default_stream {
+            self.put_char_stream_uni(stream, ch);
+        }
+    }
+
+    /// write a unicode buffer to the default stream
+    pub fn put_buffer_uni(&self, buf: &[char]) {
+        if let Some(stream) = self.default_stream {
+            self.put_buffer_stream_uni(stream, buf);
+        }
     }
 
     /// write a byte to a stream
@@ -662,5 +721,70 @@ mod test {
         let stream = glk.window_get_stream(&win);
         glk.put_buffer_stream_uni(stream, &['q', 'r', 's', 't', 'u', 'v']);
         assert_eq!(win.winref.borrow().window.borrow().textdata, "qrstuv");
+    }
+
+    #[test]
+    fn at_startup_there_is_no_default_stream() {
+        let glk = Glk::<GlkTestWindow>::new();
+        assert!(glk.stream_get_current().is_none());
+    }
+
+    #[test]
+    fn can_change_default_stream() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+        let win = glk
+            .window_open(None, GlkWindowType::TextBuffer, None, 73)
+            .unwrap();
+        let stream = glk.window_get_stream(&win);
+        glk.stream_set_current(stream);
+        assert!(glk.stream_get_current().is_some());
+        assert_eq!(glk.stream_get_current(), Some(stream));
+    }
+
+    #[test]
+    fn can_write_to_default_stream() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+        let win1 = glk
+            .window_open(None, GlkWindowType::TextBuffer, None, 73)
+            .unwrap();
+        assert!(glk.window_get_parent(&win1).is_none());
+        let win2 = glk
+            .window_open(
+                Some(&win1),
+                GlkWindowType::TextGrid,
+                Some(WindowSplitMethod {
+                    position: WindowSplitPosition::Above,
+                    amount: WindowSplitAmount::Proportional(40),
+                    border: false,
+                }),
+                84,
+            )
+            .unwrap();
+
+        let stream1 = glk.window_get_stream(&win1);
+        let stream2 = glk.window_get_stream(&win2);
+
+        glk.stream_set_current(stream1);
+        glk.put_char(b'A');
+        glk.put_string("bove");
+        glk.put_buffer(&[b' ', b't', b'h', b'e']);
+        glk.put_char_uni(' ');
+        glk.put_buffer_uni(&['s', 'k', 'y']);
+
+        glk.stream_set_current(stream2);
+        glk.put_char(b'B');
+        glk.put_string("elow");
+        glk.put_buffer(&[b' ', b'g', b'r', b'o', b'u', b'n', b'd']);
+        glk.put_char_uni('.');
+        glk.put_buffer_uni(&[' ', 'L', 'o', 'o', 'k', '!']);
+
+        assert_eq!(
+            win1.winref.borrow().window.borrow().textdata,
+            "Above the sky"
+        );
+        assert_eq!(
+            win2.winref.borrow().window.borrow().textdata,
+            "Below ground. Look!"
+        );
     }
 }
