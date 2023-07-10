@@ -235,7 +235,6 @@ impl<T: GlkWindow + Default> Glk<T> {
     /// write a byte to a stream
     pub fn put_char(&self, streamid: GlkStreamID, ch: u8) {
         if let Some(stream) = self.stream_mgr.get(streamid) {
-            println!("glk - put char");
             stream.put_char(ch);
         }
     }
@@ -543,7 +542,6 @@ mod test {
         assert!(glk.window_get_root().unwrap().is_ref(&win1));
     }
 
-    /*
     #[test]
     fn can_put_byte_style_char_into_window() {
         let mut glk = Glk::<GlkTestWindow>::new();
@@ -551,9 +549,37 @@ mod test {
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
         let stream = glk.window_get_stream(&win);
-        println!("entry - test - put char {stream}");
         glk.put_char(stream, b'x');
-        assert_eq!(win.winref.borrow().window.textdata, "x");
+        assert_eq!(win.winref.borrow().window.borrow().textdata, "x");
     }
-    */
+
+    #[test]
+    fn can_write_to_two_different_windows() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+        let win1 = glk
+            .window_open(None, GlkWindowType::TextBuffer, None, 73)
+            .unwrap();
+        assert!(glk.window_get_parent(&win1).is_none());
+        let win2 = glk
+            .window_open(
+                Some(&win1),
+                GlkWindowType::TextGrid,
+                Some(WindowSplitMethod {
+                    position: WindowSplitPosition::Above,
+                    amount: WindowSplitAmount::Proportional(40),
+                    border: false,
+                }),
+                84,
+            )
+            .unwrap();
+
+        let stream1 = glk.window_get_stream(&win1);
+        let stream2 = glk.window_get_stream(&win2);
+
+        glk.put_char(stream1, b'A');
+        glk.put_char(stream2, b'B');
+
+        assert_eq!(win1.winref.borrow().window.borrow().textdata, "A");
+        assert_eq!(win2.winref.borrow().window.borrow().textdata, "B");
+    }
 }

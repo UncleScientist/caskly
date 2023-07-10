@@ -479,7 +479,6 @@ pub mod testwin {
 
     impl StreamHandler for GlkTestWindow {
         fn put_char(&mut self, ch: u8) {
-            println!("test window: put char");
             self.textdata.push(ch as char);
         }
 
@@ -498,7 +497,6 @@ pub mod testwin {
         }
 
         fn move_cursor(&mut self, x: u32, y: u32) {
-            println!("moving cursor to {x},{y}");
             self.cursor_x = x;
             self.cursor_y = y;
         }

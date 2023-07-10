@@ -37,7 +37,6 @@ impl GlkStream {
     }
 
     pub fn put_char(&self, ch: u8) {
-        println!("glkstream: put char");
         self.output.borrow_mut().put_char(ch);
     }
 }
