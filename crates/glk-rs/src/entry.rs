@@ -354,6 +354,15 @@ impl<T: GlkWindow + Default> Glk<T> {
             Vec::new()
         }
     }
+
+    /// read a stream of bytes until a newline, or until end-of-stream
+    pub fn get_line_stream(&self, streamid: GlkStreamID, len: Option<usize>) -> Vec<u8> {
+        if let Some(stream) = self.stream_mgr.get(streamid) {
+            stream.get_line(len)
+        } else {
+            Vec::new()
+        }
+    }
 }
 
 /// determines the style of title case conversions
@@ -840,6 +849,35 @@ mod test {
         assert_eq!(
             glk.get_buffer_stream(stream1, None),
             "testing".chars().map(|c| c as u8).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn can_read_a_line_from_a_stream() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+        let win1 = glk
+            .window_open(None, GlkWindowType::TextBuffer, None, 73)
+            .unwrap();
+        win1.winref
+            .borrow()
+            .window
+            .borrow_mut()
+            .set_input_buffer("testing line 1\ntesting line 2\ntesting line 3\n");
+        let stream1 = glk.window_get_stream(&win1);
+
+        assert_eq!(
+            glk.get_line_stream(stream1, None),
+            "testing line 1"
+                .chars()
+                .map(|c| c as u8)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            glk.get_line_stream(stream1, None),
+            "testing line 2"
+                .chars()
+                .map(|c| c as u8)
+                .collect::<Vec<_>>()
         );
     }
 }

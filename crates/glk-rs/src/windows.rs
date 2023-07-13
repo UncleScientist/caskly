@@ -529,8 +529,25 @@ pub mod testwin {
             result
         }
 
-        fn get_line(&self) -> Vec<u8> {
-            Vec::new()
+        fn get_line(&self, maxlen: Option<usize>) -> Vec<u8> {
+            let buflen = self.input_buffer.borrow().len();
+            let mut len = if let Some(len) = maxlen {
+                buflen.min(len)
+            } else {
+                buflen
+            };
+
+            let mut result = Vec::new();
+            while len > 0 {
+                let byte = self.input_buffer.borrow_mut().remove(0) as u8;
+                if byte == b'\n' {
+                    break;
+                }
+                result.push(byte);
+                len -= 1;
+            }
+
+            result
         }
 
         fn get_char_uni(&self) -> char {
