@@ -59,15 +59,6 @@ pub struct WindowRef<T: GlkWindow + Default> {
     pub(crate) winref: Rc<RefCell<Window<T>>>,
 }
 
-/// The stats from the window that is being closed
-#[derive(Debug, Default)]
-pub struct StreamResult {
-    /// number of characters that were read from this stream
-    pub readcount: u32,
-    /// number of characters that were written to this stream
-    pub writecount: u32,
-}
-
 /// The size of a window
 #[derive(Debug, Default)]
 pub struct GlkWindowSize {
@@ -238,7 +229,7 @@ impl<T: GlkWindow + Default> WindowRef<T> {
     //   P   U         C   U
     //  / \
     // C   D
-    pub(crate) fn close_window(&self) -> StreamResult {
+    pub(crate) fn close_window(&self) {
         let mut parent = self.get_parent().unwrap();
         let grandparent = parent.get_parent().unwrap();
 
@@ -271,8 +262,6 @@ impl<T: GlkWindow + Default> WindowRef<T> {
         }
 
         parent.clean_tree();
-
-        StreamResult::default()
     }
 
     pub(crate) fn make_clone(&self) -> WindowRef<T> {
@@ -454,6 +443,8 @@ impl<T: GlkWindow + Default> Window<T> {}
 
 #[cfg(test)]
 pub mod testwin {
+    use crate::stream::GlkStreamResult;
+
     use super::*;
 
     #[derive(Debug)]
@@ -465,6 +456,8 @@ pub mod testwin {
         pub textdata: String, // output buffer
         pub input_buffer: RefCell<Vec<char>>,
         pub input_cursor: RefCell<usize>,
+        pub output_bytes: usize,
+        pub input_bytes: usize,
     }
 
     impl Default for GlkTestWindow {
@@ -477,6 +470,8 @@ pub mod testwin {
                 textdata: String::new(),
                 input_buffer: RefCell::new(Vec::new()),
                 input_cursor: RefCell::new(0),
+                output_bytes: 0,
+                input_bytes: 0,
             }
         }
     }
@@ -596,6 +591,26 @@ pub mod testwin {
             }
 
             result
+        }
+
+        fn is_window_stream(&self) -> bool {
+            true
+        }
+
+        fn increment_output_count(&mut self, count: usize) {
+            println!("incremeting output count by {count}");
+            self.output_bytes += count;
+        }
+
+        fn increment_input_count(&mut self, count: usize) {
+            self.input_bytes += count;
+        }
+
+        fn get_results(&self) -> GlkStreamResult {
+            GlkStreamResult {
+                read_count: self.input_bytes as u32,
+                write_count: self.output_bytes as u32,
+            }
         }
     }
 

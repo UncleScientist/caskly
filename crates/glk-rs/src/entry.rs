@@ -1,7 +1,7 @@
 use crate::gestalt::OutputType;
 use crate::gestalt::*;
 use crate::keycode::Keycode;
-use crate::stream::{GlkStreamID, StreamManager};
+use crate::stream::{GlkStreamID, GlkStreamResult, StreamManager};
 use crate::windows::{
     GlkWindow, GlkWindowSize, GlkWindowType, WindowManager, WindowRef, WindowSplitMethod,
     WindowType,
@@ -138,9 +138,11 @@ impl<T: GlkWindow + Default> Glk<T> {
     }
 
     /// close the given window and all of its children
-    pub fn window_close(&mut self, win: &WindowRef<T>) {
+    pub fn window_close(&mut self, win: &WindowRef<T>) -> GlkStreamResult {
         self.windows.retain(|w| !w.is_ref(win));
+        let stream = win.get_stream();
         win.close_window();
+        self.stream_mgr.close(stream).unwrap()
     }
 
     /*
@@ -389,6 +391,20 @@ impl<T: GlkWindow + Default> Glk<T> {
             stream.get_line_uni(len)
         } else {
             Vec::new()
+        }
+    }
+
+    /*
+     * 5.3 - Closing Streams
+     */
+
+    /// Closes a stream. Window streams are only close-able through glk.window_close()
+    pub fn stream_close(&mut self, streamid: GlkStreamID) -> Option<GlkStreamResult> {
+        let stream = self.stream_mgr.get(streamid)?;
+        if stream.is_window_stream() {
+            None
+        } else {
+            self.stream_mgr.close(streamid)
         }
     }
 }
@@ -963,5 +979,31 @@ mod test {
             glk.get_line_stream_uni(stream1, None),
             "testing line 2".chars().collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn can_count_chars_in_output() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+        let win1 = glk
+            .window_open(None, GlkWindowType::TextBuffer, None, 73)
+            .unwrap();
+        let win2 = glk
+            .window_open(
+                Some(&win1),
+                GlkWindowType::TextGrid,
+                Some(WindowSplitMethod {
+                    position: WindowSplitPosition::Above,
+                    amount: WindowSplitAmount::Proportional(40),
+                    border: false,
+                }),
+                84,
+            )
+            .unwrap();
+        let stream2 = glk.window_get_stream(&win2);
+
+        glk.put_char_stream(stream2, b'0');
+        let stream_results = glk.window_close(&win2);
+        assert_eq!(stream_results.read_count, 0);
+        assert_eq!(stream_results.write_count, 1);
     }
 }
