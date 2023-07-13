@@ -462,7 +462,9 @@ pub mod testwin {
         pub height: u32,
         pub cursor_x: u32,
         pub cursor_y: u32,
-        pub textdata: String,
+        pub textdata: String, // output buffer
+        pub input_buffer: RefCell<Vec<char>>,
+        pub input_cursor: RefCell<usize>,
     }
 
     impl Default for GlkTestWindow {
@@ -473,6 +475,8 @@ pub mod testwin {
                 cursor_x: 0,
                 cursor_y: 0,
                 textdata: String::new(),
+                input_buffer: RefCell::new(Vec::new()),
+                input_cursor: RefCell::new(0),
             }
         }
     }
@@ -497,6 +501,36 @@ pub mod testwin {
         fn put_buffer_uni(&mut self, buf: &[char]) {
             self.textdata.extend(buf.iter());
         }
+
+        fn get_char(&self) -> Option<u8> {
+            let pos = *self.input_cursor.borrow();
+            if pos >= self.input_buffer.borrow().len() {
+                None
+            } else {
+                *self.input_cursor.borrow_mut() += 1;
+                Some(self.input_buffer.borrow()[pos] as u8)
+            }
+        }
+
+        fn get_buffer(&self) -> Vec<u8> {
+            Vec::new()
+        }
+
+        fn get_line(&self) -> Vec<u8> {
+            Vec::new()
+        }
+
+        fn get_char_uni(&self) -> char {
+            '0'
+        }
+
+        fn get_buffer_uni(&self) -> Vec<char> {
+            Vec::new()
+        }
+
+        fn get_line_uni(&self) -> Vec<char> {
+            Vec::new()
+        }
     }
 
     impl super::GlkWindow for GlkTestWindow {
@@ -515,6 +549,13 @@ pub mod testwin {
         fn clear(&mut self) {
             self.cursor_x = 0;
             self.cursor_y = 0;
+        }
+    }
+
+    impl GlkTestWindow {
+        pub fn set_input_buffer(&mut self, s: &str) {
+            self.input_buffer = RefCell::new(Vec::from_iter(s.chars()));
+            self.input_cursor = RefCell::new(0);
         }
     }
 }
@@ -707,6 +748,31 @@ mod test {
         assert_eq!(window_a.winref.borrow().window.borrow().cursor_x, 5);
         window_a.clear();
         assert_eq!(window_a.winref.borrow().window.borrow().cursor_x, 0);
+    }
+
+    #[test]
+    fn can_set_input_buffer_in_test_window() {
+        let winsys = WindowManager::<GlkTestWindow>::default();
+        let window_a = winsys.open_window(WindowType::TextGrid, 32);
+        window_a
+            .winref
+            .borrow()
+            .window
+            .borrow_mut()
+            .set_input_buffer("test buffer");
+        assert_eq!(
+            window_a
+                .winref
+                .borrow()
+                .window
+                .borrow()
+                .input_buffer
+                .borrow()
+                .iter()
+                .copied()
+                .collect::<Vec<_>>(),
+            "test buffer".chars().collect::<Vec<_>>()
+        );
     }
 
     /*

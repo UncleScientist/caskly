@@ -19,41 +19,65 @@ impl StreamManager {
     pub(crate) fn get(&self, id: GlkStreamID) -> Option<GlkStream> {
         let stream = self.stream.get(&id)?;
         Some(GlkStream {
-            output: Rc::clone(&stream.output),
+            sh: Rc::clone(&stream.sh),
         })
     }
 }
 
 #[derive(Debug)]
 pub struct GlkStream {
-    output: Rc<RefCell<dyn StreamHandler>>,
+    sh: Rc<RefCell<dyn StreamHandler>>,
 }
 
 impl GlkStream {
     pub(crate) fn new(stream: &Rc<RefCell<dyn StreamHandler>>) -> Self {
         Self {
-            output: Rc::clone(stream),
+            sh: Rc::clone(stream),
         }
     }
 
     pub fn put_char(&self, ch: u8) {
-        self.output.borrow_mut().put_char(ch);
+        self.sh.borrow_mut().put_char(ch);
     }
 
     pub fn put_string(&self, s: &str) {
-        self.output.borrow_mut().put_string(s);
+        self.sh.borrow_mut().put_string(s);
     }
 
     pub fn put_buffer(&self, buf: &[u8]) {
-        self.output.borrow_mut().put_buffer(buf);
+        self.sh.borrow_mut().put_buffer(buf);
     }
 
     pub fn put_char_uni(&self, ch: char) {
-        self.output.borrow_mut().put_char_uni(ch);
+        self.sh.borrow_mut().put_char_uni(ch);
     }
 
     pub fn put_buffer_uni(&self, buf: &[char]) {
-        self.output.borrow_mut().put_buffer_uni(buf);
+        self.sh.borrow_mut().put_buffer_uni(buf);
+    }
+
+    pub fn get_char(&self) -> Option<u8> {
+        self.sh.borrow().get_char()
+    }
+
+    pub fn get_buffer(&self) -> Vec<u8> {
+        Vec::new()
+    }
+
+    pub fn get_line(&self) -> Vec<u8> {
+        Vec::new()
+    }
+
+    pub fn get_char_uni(&self) -> char {
+        '0'
+    }
+
+    pub fn get_buffer_uni(&self) -> Vec<char> {
+        Vec::new()
+    }
+
+    pub fn get_line_uni(&self) -> Vec<char> {
+        Vec::new()
     }
 }
 
@@ -64,4 +88,11 @@ pub trait StreamHandler: Debug {
     fn put_char_uni(&mut self, ch: char);
     // note: put_string_uni() is not here because put_string() handles it
     fn put_buffer_uni(&mut self, buf: &[char]);
+
+    fn get_char(&self) -> Option<u8>;
+    fn get_buffer(&self) -> Vec<u8>;
+    fn get_line(&self) -> Vec<u8>;
+    fn get_char_uni(&self) -> char;
+    fn get_buffer_uni(&self) -> Vec<char>;
+    fn get_line_uni(&self) -> Vec<char>;
 }
