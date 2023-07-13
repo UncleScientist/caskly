@@ -512,8 +512,21 @@ pub mod testwin {
             }
         }
 
-        fn get_buffer(&self) -> Vec<u8> {
-            Vec::new()
+        fn get_buffer(&self, maxlen: Option<usize>) -> Vec<u8> {
+            let buflen = self.input_buffer.borrow().len();
+            let mut len = if let Some(len) = maxlen {
+                buflen.min(len)
+            } else {
+                buflen
+            };
+
+            let mut result = Vec::new();
+            while len > 0 {
+                result.push(self.input_buffer.borrow_mut().remove(0) as u8);
+                len -= 1;
+            }
+
+            result
         }
 
         fn get_line(&self) -> Vec<u8> {
