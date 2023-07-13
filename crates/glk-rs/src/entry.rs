@@ -373,6 +373,24 @@ impl<T: GlkWindow + Default> Glk<T> {
             None
         }
     }
+
+    /// read a stream of unicode characters
+    pub fn get_buffer_stream_uni(&self, streamid: GlkStreamID, len: Option<usize>) -> Vec<char> {
+        if let Some(stream) = self.stream_mgr.get(streamid) {
+            stream.get_buffer_uni(len)
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// read a stream of unicode characters
+    pub fn get_line_stream_uni(&self, streamid: GlkStreamID, len: Option<usize>) -> Vec<char> {
+        if let Some(stream) = self.stream_mgr.get(streamid) {
+            stream.get_line_uni(len)
+        } else {
+            Vec::new()
+        }
+    }
 }
 
 /// determines the style of title case conversions
@@ -845,7 +863,7 @@ mod test {
     }
 
     #[test]
-    fn can_read_buffer_from_stream() {
+    fn can_read_byte_buffer_from_stream() {
         let mut glk = Glk::<GlkTestWindow>::new();
         let win1 = glk
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
@@ -863,7 +881,7 @@ mod test {
     }
 
     #[test]
-    fn can_read_a_line_from_a_stream() {
+    fn can_read_a_line_of_bytes_from_a_stream() {
         let mut glk = Glk::<GlkTestWindow>::new();
         let win1 = glk
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
@@ -904,5 +922,46 @@ mod test {
             .set_input_buffer("testing");
         let stream1 = glk.window_get_stream(&win1);
         assert_eq!(glk.get_char_stream_uni(stream1), Some('t'));
+    }
+
+    #[test]
+    fn can_read_char_buffer_from_stream() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+        let win1 = glk
+            .window_open(None, GlkWindowType::TextBuffer, None, 73)
+            .unwrap();
+        win1.winref
+            .borrow()
+            .window
+            .borrow_mut()
+            .set_input_buffer("testing");
+        let stream1 = glk.window_get_stream(&win1);
+        assert_eq!(
+            glk.get_buffer_stream_uni(stream1, None),
+            "testing".chars().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn can_read_a_line_of_chars_from_a_stream() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+        let win1 = glk
+            .window_open(None, GlkWindowType::TextBuffer, None, 73)
+            .unwrap();
+        win1.winref
+            .borrow()
+            .window
+            .borrow_mut()
+            .set_input_buffer("testing line 1\ntesting line 2\ntesting line 3\n");
+        let stream1 = glk.window_get_stream(&win1);
+
+        assert_eq!(
+            glk.get_line_stream_uni(stream1, None),
+            "testing line 1".chars().collect::<Vec<_>>()
+        );
+        assert_eq!(
+            glk.get_line_stream_uni(stream1, None),
+            "testing line 2".chars().collect::<Vec<_>>()
+        );
     }
 }

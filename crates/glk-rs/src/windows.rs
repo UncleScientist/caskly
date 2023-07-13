@@ -560,12 +560,42 @@ pub mod testwin {
             }
         }
 
-        fn get_buffer_uni(&self) -> Vec<char> {
-            Vec::new()
+        fn get_buffer_uni(&self, maxlen: Option<usize>) -> Vec<char> {
+            let buflen = self.input_buffer.borrow().len();
+            let mut len = if let Some(len) = maxlen {
+                buflen.min(len)
+            } else {
+                buflen
+            };
+
+            let mut result = Vec::new();
+            while len > 0 {
+                result.push(self.input_buffer.borrow_mut().remove(0));
+                len -= 1;
+            }
+
+            result
         }
 
-        fn get_line_uni(&self) -> Vec<char> {
-            Vec::new()
+        fn get_line_uni(&self, maxlen: Option<usize>) -> Vec<char> {
+            let buflen = self.input_buffer.borrow().len();
+            let mut len = if let Some(len) = maxlen {
+                buflen.min(len)
+            } else {
+                buflen
+            };
+
+            let mut result = Vec::new();
+            while len > 0 {
+                let byte = self.input_buffer.borrow_mut().remove(0);
+                if byte == '\n' {
+                    break;
+                }
+                result.push(byte);
+                len -= 1;
+            }
+
+            result
         }
     }
 
