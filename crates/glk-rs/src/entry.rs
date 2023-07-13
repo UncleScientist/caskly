@@ -363,6 +363,16 @@ impl<T: GlkWindow + Default> Glk<T> {
             Vec::new()
         }
     }
+
+    /// get a unicode character from a stream. If the stream is output-only, or if there
+    /// are no more characters to read, return None
+    pub fn get_char_stream_uni(&self, streamid: GlkStreamID) -> Option<char> {
+        if let Some(stream) = self.stream_mgr.get(streamid) {
+            stream.get_char_uni()
+        } else {
+            None
+        }
+    }
 }
 
 /// determines the style of title case conversions
@@ -820,7 +830,7 @@ mod test {
     }
 
     #[test]
-    fn can_read_char_from_stream() {
+    fn can_read_byte_from_stream() {
         let mut glk = Glk::<GlkTestWindow>::new();
         let win1 = glk
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
@@ -879,5 +889,20 @@ mod test {
                 .map(|c| c as u8)
                 .collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn can_read_char_from_stream() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+        let win1 = glk
+            .window_open(None, GlkWindowType::TextBuffer, None, 73)
+            .unwrap();
+        win1.winref
+            .borrow()
+            .window
+            .borrow_mut()
+            .set_input_buffer("testing");
+        let stream1 = glk.window_get_stream(&win1);
+        assert_eq!(glk.get_char_stream_uni(stream1), Some('t'));
     }
 }

@@ -68,8 +68,8 @@ impl GlkStream {
         self.sh.borrow().get_line(maxlen)
     }
 
-    pub fn get_char_uni(&self) -> char {
-        '0'
+    pub fn get_char_uni(&self) -> Option<char> {
+        self.sh.borrow().get_char_uni()
     }
 
     pub fn get_buffer_uni(&self) -> Vec<char> {
@@ -92,7 +92,7 @@ pub trait StreamHandler: Debug {
     fn get_char(&self) -> Option<u8>;
     fn get_buffer(&self, maxlen: Option<usize>) -> Vec<u8>;
     fn get_line(&self, maxlen: Option<usize>) -> Vec<u8>;
-    fn get_char_uni(&self) -> char;
+    fn get_char_uni(&self) -> Option<char>;
     fn get_buffer_uni(&self) -> Vec<char>;
     fn get_line_uni(&self) -> Vec<char>;
 }

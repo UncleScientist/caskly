@@ -550,8 +550,14 @@ pub mod testwin {
             result
         }
 
-        fn get_char_uni(&self) -> char {
-            '0'
+        fn get_char_uni(&self) -> Option<char> {
+            let pos = *self.input_cursor.borrow();
+            if pos >= self.input_buffer.borrow().len() {
+                None
+            } else {
+                *self.input_cursor.borrow_mut() += 1;
+                Some(self.input_buffer.borrow()[pos])
+            }
         }
 
         fn get_buffer_uni(&self) -> Vec<char> {
