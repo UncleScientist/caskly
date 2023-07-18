@@ -3,8 +3,8 @@ use crate::gestalt::*;
 use crate::keycode::Keycode;
 use crate::stream::{GlkStreamID, GlkStreamResult, StreamManager};
 use crate::windows::{
-    GlkWindow, GlkWindowSize, GlkWindowType, WindowManager, WindowRef, WindowSplitMethod,
-    WindowType,
+    GlkWindow, GlkWindowID, GlkWindowSize, GlkWindowType, WindowManager, WindowRef,
+    WindowSplitMethod, WindowType,
 };
 use crate::GlkRock;
 
@@ -12,8 +12,7 @@ use crate::GlkRock;
 /// This is the API for GLK interpreted as a Rust API.
 #[derive(Default, Debug)]
 pub struct Glk<T: GlkWindow + Default + 'static> {
-    windows: Vec<WindowRef<T>>,
-    winmgr: WindowManager<T>,
+    win_mgr: WindowManager<T>,
     stream_mgr: StreamManager,
     default_stream: Option<GlkStreamID>,
 }
@@ -105,11 +104,11 @@ impl<T: GlkWindow + Default> Glk<T> {
     /// create a new window
     pub fn window_open(
         &mut self,
-        parent: Option<&WindowRef<T>>,
+        parent: Option<GlkWindowID>,
         wintype: GlkWindowType,
         method: Option<WindowSplitMethod>,
         rock: GlkRock,
-    ) -> Option<WindowRef<T>> {
+    ) -> Option<GlkWindowID> {
         let wintype = match wintype {
             GlkWindowType::Blank => WindowType::Blank,
             GlkWindowType::TextBuffer => WindowType::TextBuffer,
@@ -119,30 +118,28 @@ impl<T: GlkWindow + Default> Glk<T> {
         };
 
         let new_win = if let Some(parent) = parent {
-            let (pair, win) = parent.split(method, wintype, rock);
-            self.windows.push(pair);
-            win
+            self.win_mgr.split(parent, method, wintype, rock)
         } else {
-            assert!(
-                self.windows.is_empty(),
-                "new windows must be split from existing ones"
-            );
-            self.winmgr.open_window(wintype, rock)
-        };
+            self.win_mgr.open_window(wintype, rock)
+        }?;
+        println!("{new_win:?}");
 
-        let stream_id = self.stream_mgr.new_stream(new_win.get_winref());
-        new_win.set_stream_id(stream_id);
+        let stream_id = self
+            .stream_mgr
+            .new_stream(self.win_mgr.get_window(new_win)?);
+        println!("stream_id = {stream_id}");
+        self.win_mgr.set_stream_id(new_win, stream_id)?;
 
-        self.windows.push(new_win);
-        Some(self.windows.last()?.make_clone())
+        Some(new_win)
     }
 
     /// close the given window and all of its children
-    pub fn window_close(&mut self, win: &WindowRef<T>) -> GlkStreamResult {
-        self.windows.retain(|w| !w.is_ref(win));
-        let stream = win.get_stream();
-        win.close_window();
-        self.stream_mgr.close(stream).unwrap()
+    pub fn window_close(&mut self, win: GlkWindowID) -> Option<GlkStreamResult> {
+        let winref = self.win_mgr.get_ref(win)?;
+        let stream = winref.get_stream();
+
+        self.win_mgr.close(win)?;
+        self.stream_mgr.close(stream)
     }
 
     /*
@@ -167,13 +164,20 @@ impl<T: GlkWindow + Default> Glk<T> {
     /// returns the constraints of the window
     pub fn window_get_arrangement(
         &self,
-        win: &WindowRef<T>,
-    ) -> (Option<WindowSplitMethod>, Option<WindowRef<T>>) {
-        if let Some((method, keywin)) = win.get_arrangement() {
-            (Some(method), keywin)
-        } else {
-            (None, None)
+        win: GlkWindowID,
+    ) -> (Option<WindowSplitMethod>, Option<GlkWindowID>) {
+        if let Some(winref) = self.win_mgr.get_ref(win) {
+            if let Some((method, keywin)) = winref.get_arrangement() {
+                let keywin_id = if let Some(k) = keywin {
+                    Some(k.id())
+                } else {
+                    None
+                };
+                return (Some(method), keywin_id);
+            }
         }
+
+        (None, None)
     }
 
     /*
@@ -190,49 +194,56 @@ impl<T: GlkWindow + Default> Glk<T> {
      */
 
     /// iterate through all the windows
-    pub fn window_iterate(&self) -> std::slice::Iter<WindowRef<T>> {
+    pub fn window_iterate(&self) -> std::vec::IntoIter<GlkWindowID> {
         // should we be doing this with Iter<&WindowRef<T>> instead?
-        self.windows.iter()
+        self.win_mgr.get_iter()
     }
 
     /// get the rock value for a given window
-    pub fn window_get_rock(&self, win: &WindowRef<T>) -> GlkRock {
-        win.get_rock()
+    pub fn window_get_rock(&self, win: GlkWindowID) -> Option<GlkRock> {
+        let win = self.win_mgr.get_ref(win)?;
+        Some(win.get_rock())
     }
 
     /// get the type of the window
-    pub fn window_get_type(&self, win: &WindowRef<T>) -> GlkWindowType {
-        win.get_type()
+    pub fn window_get_type(&self, win: GlkWindowID) -> Option<GlkWindowType> {
+        let win = self.win_mgr.get_ref(win)?;
+        Some(win.get_type())
     }
 
     /// get the parent for this window
-    pub fn window_get_parent(&self, win: &WindowRef<T>) -> Option<WindowRef<T>> {
+    pub fn window_get_parent(&self, win: GlkWindowID) -> Option<GlkWindowID> {
+        let win = self.win_mgr.get_ref(win)?;
         let parent = win.get_parent()?;
         if parent.winref.borrow().wintype == WindowType::Root {
             None
         } else {
-            Some(parent)
+            Some(parent.id())
         }
     }
 
     /// get the sibling of this window
-    pub fn window_get_sibling(&self, win: &WindowRef<T>) -> Option<WindowRef<T>> {
-        win.get_sibling()
+    pub fn window_get_sibling(&self, win: GlkWindowID) -> Option<GlkWindowID> {
+        let win = self.win_mgr.get_ref(win)?;
+        Some(win.get_sibling()?.id())
     }
 
     /// gets the root window - if there are no windows, returns None
-    pub fn window_get_root(&self) -> Option<WindowRef<T>> {
-        self.winmgr.get_root()
+    pub fn window_get_root(&self) -> Option<GlkWindowID> {
+        self.win_mgr.get_root()
     }
 
     /// clears the window
-    pub fn window_clear(&self, win: &WindowRef<T>) {
-        win.clear()
+    pub fn window_clear(&self, win: GlkWindowID) {
+        if let Some(win) = self.win_mgr.get_ref(win) {
+            win.clear();
+        }
     }
 
     /// get the stream associated with a window
-    pub fn window_get_stream(&self, win: &WindowRef<T>) -> GlkStreamID {
-        win.get_stream()
+    pub fn window_get_stream(&self, win: GlkWindowID) -> Option<GlkStreamID> {
+        let win = self.win_mgr.get_ref(win)?;
+        Some(win.get_stream())
     }
 
     /*
@@ -407,6 +418,12 @@ impl<T: GlkWindow + Default> Glk<T> {
             self.stream_mgr.close(streamid)
         }
     }
+
+    /* TEST ONLY FUNCTIONS */
+    #[cfg(test)]
+    pub(crate) fn t_get_winref(&self, win: GlkWindowID) -> WindowRef<T> {
+        self.win_mgr.get_ref(win).unwrap()
+    }
 }
 
 /// determines the style of title case conversions
@@ -573,7 +590,7 @@ mod test {
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
         let win2 = glk.window_open(
-            Some(&win),
+            Some(win),
             GlkWindowType::TextGrid,
             Some(WindowSplitMethod {
                 position: WindowSplitPosition::Above,
@@ -592,9 +609,8 @@ mod test {
         let win = glk
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
-        assert_eq!(win.get_rock(), 73);
-        assert_eq!(glk.window_get_rock(&win), 73);
-        assert_eq!(glk.window_get_type(&win), GlkWindowType::TextBuffer);
+        assert_eq!(glk.window_get_rock(win).unwrap(), 73);
+        assert_eq!(glk.window_get_type(win).unwrap(), GlkWindowType::TextBuffer);
     }
 
     #[test]
@@ -605,7 +621,7 @@ mod test {
             .unwrap();
         let win2 = glk
             .window_open(
-                Some(&win1),
+                Some(win1),
                 GlkWindowType::TextGrid,
                 Some(WindowSplitMethod {
                     position: WindowSplitPosition::Above,
@@ -617,7 +633,7 @@ mod test {
             .unwrap();
         let win3 = glk
             .window_open(
-                Some(&win2),
+                Some(win2),
                 GlkWindowType::TextGrid,
                 Some(WindowSplitMethod {
                     position: WindowSplitPosition::Below,
@@ -635,17 +651,17 @@ mod test {
         let mut found_pair = None;
         while let Some(win) = i.next() {
             count += 1;
-            if win.is_ref(&win1) {
+            if win == win1 {
                 found[2] = true;
-            } else if win.is_ref(&win2) {
+            } else if win == win2 {
                 found[3] = true;
-            } else if win.is_ref(&win3) {
+            } else if win == win3 {
                 found[4] = true;
             } else if found_pair.is_none() {
-                found_pair = Some(win.make_clone());
+                found_pair = Some(win);
                 found[0] = true;
-            } else if let Some(ref f) = found_pair {
-                if !f.is_ref(&win) {
+            } else if let Some(f) = found_pair {
+                if f != win {
                     found[1] = true;
                 }
             }
@@ -660,10 +676,10 @@ mod test {
         let win1 = glk
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
-        assert!(glk.window_get_parent(&win1).is_none());
+        assert!(glk.window_get_parent(win1).is_none());
         let win2 = glk
             .window_open(
-                Some(&win1),
+                Some(win1),
                 GlkWindowType::TextGrid,
                 Some(WindowSplitMethod {
                     position: WindowSplitPosition::Above,
@@ -673,8 +689,8 @@ mod test {
                 84,
             )
             .unwrap();
-        let parent1 = glk.window_get_parent(&win2).unwrap();
-        assert_eq!(parent1.get_type(), GlkWindowType::Pair);
+        let parent1 = glk.window_get_parent(win2).unwrap();
+        assert_eq!(glk.window_get_type(parent1).unwrap(), GlkWindowType::Pair);
     }
 
     #[test]
@@ -683,11 +699,11 @@ mod test {
         let win1 = glk
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
-        assert!(glk.window_get_sibling(&win1).is_none());
+        assert!(glk.window_get_sibling(win1).is_none());
 
         let win2 = glk
             .window_open(
-                Some(&win1),
+                Some(win1),
                 GlkWindowType::TextGrid,
                 Some(WindowSplitMethod {
                     position: WindowSplitPosition::Above,
@@ -697,8 +713,8 @@ mod test {
                 84,
             )
             .unwrap();
-        let sibling = glk.window_get_sibling(&win2).unwrap();
-        assert!(sibling.is_ref(&win1));
+        let sibling = glk.window_get_sibling(win2).unwrap();
+        assert_eq!(sibling, win1);
     }
 
     #[test]
@@ -708,7 +724,7 @@ mod test {
         let win1 = glk
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
-        assert!(glk.window_get_root().unwrap().is_ref(&win1));
+        assert_eq!(glk.window_get_root().unwrap(), win1);
     }
 
     #[test]
@@ -717,9 +733,10 @@ mod test {
         let win = glk
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
-        let stream = glk.window_get_stream(&win);
+        let stream = glk.window_get_stream(win).unwrap();
         glk.put_char_stream(stream, b'x');
-        assert_eq!(win.winref.borrow().window.borrow().textdata, "x");
+        let winref = glk.t_get_winref(win);
+        assert_eq!(winref.winref.borrow().window.borrow().textdata, "x");
     }
 
     #[test]
@@ -728,10 +745,10 @@ mod test {
         let win1 = glk
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
-        assert!(glk.window_get_parent(&win1).is_none());
+        assert!(glk.window_get_parent(win1).is_none());
         let win2 = glk
             .window_open(
-                Some(&win1),
+                Some(win1),
                 GlkWindowType::TextGrid,
                 Some(WindowSplitMethod {
                     position: WindowSplitPosition::Above,
@@ -742,12 +759,14 @@ mod test {
             )
             .unwrap();
 
-        let stream1 = glk.window_get_stream(&win1);
-        let stream2 = glk.window_get_stream(&win2);
+        let stream1 = glk.window_get_stream(win1).unwrap();
+        let stream2 = glk.window_get_stream(win2).unwrap();
 
         glk.put_char_stream(stream1, b'A');
         glk.put_char_stream(stream2, b'B');
 
+        let win1 = glk.t_get_winref(win1);
+        let win2 = glk.t_get_winref(win2);
         assert_eq!(win1.winref.borrow().window.borrow().textdata, "A");
         assert_eq!(win2.winref.borrow().window.borrow().textdata, "B");
     }
@@ -758,8 +777,9 @@ mod test {
         let win = glk
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
-        let stream = glk.window_get_stream(&win);
+        let stream = glk.window_get_stream(win).unwrap();
         glk.put_string_stream(stream, &"hello, world!");
+        let win = glk.t_get_winref(win);
         assert_eq!(
             win.winref.borrow().window.borrow().textdata,
             "hello, world!"
@@ -772,8 +792,9 @@ mod test {
         let win = glk
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
-        let stream = glk.window_get_stream(&win);
+        let stream = glk.window_get_stream(win).unwrap();
         glk.put_buffer_stream(stream, &[b'0', b'1', b'2', b'3']);
+        let win = glk.t_get_winref(win);
         assert_eq!(win.winref.borrow().window.borrow().textdata, "0123");
     }
 
@@ -783,8 +804,9 @@ mod test {
         let win = glk
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
-        let stream = glk.window_get_stream(&win);
+        let stream = glk.window_get_stream(win).unwrap();
         glk.put_char_stream_uni(stream, 'q');
+        let win = glk.t_get_winref(win);
         assert_eq!(win.winref.borrow().window.borrow().textdata, "q");
     }
 
@@ -794,8 +816,9 @@ mod test {
         let win = glk
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
-        let stream = glk.window_get_stream(&win);
+        let stream = glk.window_get_stream(win).unwrap();
         glk.put_buffer_stream_uni(stream, &['q', 'r', 's', 't', 'u', 'v']);
+        let win = glk.t_get_winref(win);
         assert_eq!(win.winref.borrow().window.borrow().textdata, "qrstuv");
     }
 
@@ -811,7 +834,7 @@ mod test {
         let win = glk
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
-        let stream = glk.window_get_stream(&win);
+        let stream = glk.window_get_stream(win).unwrap();
         glk.stream_set_current(stream);
         assert!(glk.stream_get_current().is_some());
         assert_eq!(glk.stream_get_current(), Some(stream));
@@ -825,7 +848,7 @@ mod test {
             .unwrap();
         let win2 = glk
             .window_open(
-                Some(&win1),
+                Some(win1),
                 GlkWindowType::TextGrid,
                 Some(WindowSplitMethod {
                     position: WindowSplitPosition::Above,
@@ -836,8 +859,8 @@ mod test {
             )
             .unwrap();
 
-        let stream1 = glk.window_get_stream(&win1);
-        let stream2 = glk.window_get_stream(&win2);
+        let stream1 = glk.window_get_stream(win1).unwrap();
+        let stream2 = glk.window_get_stream(win2).unwrap();
 
         glk.stream_set_current(stream1);
         glk.put_char(b'A');
@@ -853,10 +876,12 @@ mod test {
         glk.put_char_uni('.');
         glk.put_buffer_uni(&[' ', 'L', 'o', 'o', 'k', '!']);
 
+        let win1 = glk.t_get_winref(win1);
         assert_eq!(
             win1.winref.borrow().window.borrow().textdata,
             "Above the sky"
         );
+        let win2 = glk.t_get_winref(win2);
         assert_eq!(
             win2.winref.borrow().window.borrow().textdata,
             "Below ground. Look!"
@@ -869,12 +894,14 @@ mod test {
         let win1 = glk
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
+        let stream1 = glk.window_get_stream(win1).unwrap();
+
+        let win1 = glk.t_get_winref(win1);
         win1.winref
             .borrow()
             .window
             .borrow_mut()
             .set_input_buffer("testing");
-        let stream1 = glk.window_get_stream(&win1);
         assert_eq!(glk.get_char_stream(stream1), Some(b't'));
     }
 
@@ -884,12 +911,14 @@ mod test {
         let win1 = glk
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
+        let stream1 = glk.window_get_stream(win1).unwrap();
+
+        let win1 = glk.t_get_winref(win1);
         win1.winref
             .borrow()
             .window
             .borrow_mut()
             .set_input_buffer("testing");
-        let stream1 = glk.window_get_stream(&win1);
         assert_eq!(
             glk.get_buffer_stream(stream1, None),
             "testing".chars().map(|c| c as u8).collect::<Vec<_>>()
@@ -902,12 +931,14 @@ mod test {
         let win1 = glk
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
+        let stream1 = glk.window_get_stream(win1).unwrap();
+
+        let win1 = glk.t_get_winref(win1);
         win1.winref
             .borrow()
             .window
             .borrow_mut()
             .set_input_buffer("testing line 1\ntesting line 2\ntesting line 3\n");
-        let stream1 = glk.window_get_stream(&win1);
 
         assert_eq!(
             glk.get_line_stream(stream1, None),
@@ -931,12 +962,14 @@ mod test {
         let win1 = glk
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
+        let stream1 = glk.window_get_stream(win1).unwrap();
+
+        let win1 = glk.t_get_winref(win1);
         win1.winref
             .borrow()
             .window
             .borrow_mut()
             .set_input_buffer("testing");
-        let stream1 = glk.window_get_stream(&win1);
         assert_eq!(glk.get_char_stream_uni(stream1), Some('t'));
     }
 
@@ -946,12 +979,14 @@ mod test {
         let win1 = glk
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
+        let stream1 = glk.window_get_stream(win1).unwrap();
+
+        let win1 = glk.t_get_winref(win1);
         win1.winref
             .borrow()
             .window
             .borrow_mut()
             .set_input_buffer("testing");
-        let stream1 = glk.window_get_stream(&win1);
         assert_eq!(
             glk.get_buffer_stream_uni(stream1, None),
             "testing".chars().collect::<Vec<_>>()
@@ -964,12 +999,14 @@ mod test {
         let win1 = glk
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
+        let stream1 = glk.window_get_stream(win1).unwrap();
+
+        let win1 = glk.t_get_winref(win1);
         win1.winref
             .borrow()
             .window
             .borrow_mut()
             .set_input_buffer("testing line 1\ntesting line 2\ntesting line 3\n");
-        let stream1 = glk.window_get_stream(&win1);
 
         assert_eq!(
             glk.get_line_stream_uni(stream1, None),
@@ -989,7 +1026,7 @@ mod test {
             .unwrap();
         let win2 = glk
             .window_open(
-                Some(&win1),
+                Some(win1),
                 GlkWindowType::TextGrid,
                 Some(WindowSplitMethod {
                     position: WindowSplitPosition::Above,
@@ -999,10 +1036,10 @@ mod test {
                 84,
             )
             .unwrap();
-        let stream2 = glk.window_get_stream(&win2);
+        let stream2 = glk.window_get_stream(win2).unwrap();
 
         glk.put_char_stream(stream2, b'0');
-        let stream_results = glk.window_close(&win2);
+        let stream_results = glk.window_close(win2).unwrap();
         assert_eq!(stream_results.read_count, 0);
         assert_eq!(stream_results.write_count, 1);
     }

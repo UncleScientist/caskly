@@ -1,7 +1,11 @@
 use crate::stream::{GlkStreamID, StreamHandler};
 use crate::GlkRock;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::{Rc, Weak};
+
+/// An opaque type for windows
+pub type GlkWindowID = u32;
 
 /// A glk window
 #[derive(Debug, Default)]
@@ -9,6 +13,7 @@ pub struct Window<T: GlkWindow + Default> {
     pub(crate) wintype: WindowType,
     method: Option<WindowSplitMethod>,
     rock: GlkRock,
+    this_id: GlkWindowID,
     parent: Option<Weak<RefCell<Window<T>>>>,
     child1: Option<WindowRef<T>>,
     child2: Option<WindowRef<T>>,
@@ -71,45 +76,123 @@ pub struct GlkWindowSize {
 
 #[derive(Debug, Default)]
 pub(crate) struct WindowManager<T: GlkWindow + Default> {
-    root: WindowRef<T>,
+    root: Option<GlkWindowID>,
+    windows: HashMap<GlkWindowID, WindowRef<T>>,
+    val: GlkWindowID,
 }
 
 impl<T: GlkWindow + Default> WindowManager<T> {
-    /// Create a new window
-    pub(crate) fn open_window(&self, wintype: WindowType, rock: GlkRock) -> WindowRef<T> {
-        assert!(self.root.winref.borrow().wintype == WindowType::Root);
-        let root_win = WindowRef {
+    /// Create the first window in the hierarchy
+    pub(crate) fn open_window(
+        &mut self,
+        wintype: WindowType,
+        rock: GlkRock,
+    ) -> Option<GlkWindowID> {
+        if self.root.is_none() {
+            assert!(self.windows.is_empty());
+            let root_win = WindowRef {
+                winref: Rc::new(RefCell::new(Window {
+                    wintype: WindowType::Root,
+                    ..Window::default()
+                })),
+            };
+            self.root = Some(0);
+            self.windows.insert(0, root_win);
+            self.val += 1;
+        }
+
+        assert_eq!(self.windows.len(), 1);
+
+        let root_win = self.windows.get(&0).unwrap();
+        let main_win = WindowRef {
             winref: Rc::new(RefCell::new(Window {
                 wintype,
                 rock,
+                this_id: self.val,
+                parent: Some(Rc::downgrade(&root_win.winref)),
                 ..Window::default()
             })),
         };
-        root_win
-            .winref
-            .borrow_mut()
-            .parent
-            .replace(Rc::downgrade(&self.root.winref));
-        self.root
-            .winref
-            .borrow_mut()
-            .child1
-            .replace(root_win.make_clone());
-        root_win
+
+        root_win.winref.borrow_mut().child1 = Some(main_win.make_clone());
+
+        self.windows.insert(self.val, main_win);
+
+        self.val += 1;
+
+        Some(self.val - 1)
     }
 
-    pub(crate) fn get_root(&self) -> Option<WindowRef<T>> {
-        Some(self.root.winref.borrow().child1.as_ref()?.make_clone())
+    pub(crate) fn get_root(&self) -> Option<GlkWindowID> {
+        let win = self.windows.get(&self.root?)?;
+        Some(win.winref.borrow().child1.as_ref()?.id())
+    }
+
+    pub(crate) fn get_ref(&self, win: GlkWindowID) -> Option<WindowRef<T>> {
+        Some(self.windows.get(&win)?.make_clone())
+    }
+
+    pub(crate) fn get_window(&self, win: GlkWindowID) -> Option<Rc<RefCell<T>>> {
+        println!("get window {win}...{}", self.windows.len());
+        Some(Rc::clone(&self.windows.get(&win)?.winref.borrow().window))
+    }
+
+    pub(crate) fn get_iter(&self) -> std::vec::IntoIter<GlkWindowID> {
+        self.windows
+            .keys()
+            .copied()
+            .filter(|x| *x != 0)
+            .collect::<Vec<_>>()
+            .into_iter()
+    }
+
+    pub(crate) fn set_stream_id(&self, win: GlkWindowID, stream: GlkStreamID) -> Option<()> {
+        Some(self.windows.get(&win)?.set_stream_id(stream))
+    }
+
+    pub(crate) fn split(
+        &mut self,
+        parent: GlkWindowID,
+        method: Option<WindowSplitMethod>,
+        wintype: WindowType,
+        rock: GlkRock,
+    ) -> Option<GlkWindowID> {
+        let parentwin = self.windows.get(&parent)?;
+
+        let (pairwin, newwin) = parentwin.split(method, wintype, rock);
+
+        pairwin.winref.borrow_mut().this_id = self.val;
+        self.windows.insert(self.val, pairwin);
+        self.val += 1;
+
+        newwin.winref.borrow_mut().this_id = self.val;
+        self.windows.insert(self.val, newwin);
+        self.val += 1;
+
+        Some(self.val - 1)
+    }
+
+    pub(crate) fn close(&mut self, win: GlkWindowID) -> Option<()> {
+        let winref = self.windows.get(&win)?;
+        Some(winref.close_window())
     }
 
     fn _dump(&self) {
-        self.root._dump(4);
+        if let Some(root) = self.root {
+            let rootwin = self.windows.get(&root).unwrap();
+            rootwin._dump(4);
+        }
     }
 }
 
 impl<T: GlkWindow + Default> WindowRef<T> {
+    /*
     pub(crate) fn get_winref(&self) -> Rc<RefCell<T>> {
         Rc::clone(&self.winref.borrow().window)
+    }
+    */
+    pub(crate) fn id(&self) -> GlkWindowID {
+        self.winref.borrow().this_id
     }
 
     pub(crate) fn set_stream_id(&self, sid: GlkStreamID) {
@@ -348,10 +431,6 @@ impl<T: GlkWindow + Default> WindowRef<T> {
         };
 
         Some((method, keywin))
-    }
-
-    pub(crate) fn is_ref(&self, win: &WindowRef<T>) -> bool {
-        Rc::ptr_eq(&self.winref, &win.winref)
     }
 
     pub(crate) fn move_cursor(&self, x: u32, y: u32) {
@@ -648,16 +727,17 @@ mod test {
 
     #[test]
     fn can_create_window() {
-        let winsys = WindowManager::<GlkTestWindow>::default();
+        let mut winsys = WindowManager::<GlkTestWindow>::default();
 
-        let win = winsys.open_window(WindowType::TextBuffer, 32);
-        assert_eq!(win.get_type(), GlkWindowType::TextBuffer);
+        let win = winsys.open_window(WindowType::TextBuffer, 32).unwrap();
+        let winref = winsys.get_ref(win).unwrap();
+        assert_eq!(winref.get_type(), GlkWindowType::TextBuffer);
     }
 
     #[test]
     fn can_split_window() {
-        let winsys = WindowManager::<GlkTestWindow>::default();
-        let root_win = winsys.open_window(WindowType::TextBuffer, 32);
+        let mut winsys = WindowManager::<GlkTestWindow>::default();
+        let root_win = winsys.open_window(WindowType::TextBuffer, 32).unwrap();
 
         let method = WindowSplitMethod {
             position: WindowSplitPosition::Above,
@@ -665,6 +745,7 @@ mod test {
             border: false,
         };
 
+        let root_win = winsys.get_ref(root_win).unwrap();
         let (_, split) = root_win.split(Some(method), WindowType::TextBuffer, 65);
 
         let parent = split.get_parent().unwrap();
@@ -679,7 +760,7 @@ mod test {
 
     #[test]
     fn can_split_multiple_times() {
-        let winsys = WindowManager::<GlkTestWindow>::default();
+        let mut winsys = WindowManager::<GlkTestWindow>::default();
 
         let method = WindowSplitMethod {
             position: WindowSplitPosition::Above,
@@ -687,20 +768,24 @@ mod test {
             border: false,
         };
 
-        let window_a = winsys.open_window(WindowType::TextBuffer, 32);
-        let (_, window_b) = window_a.split(Some(method.clone()), WindowType::TextBuffer, 33);
-        let (_, _) = window_a.split(Some(method.clone()), WindowType::TextBuffer, 34);
+        let window_a = winsys.open_window(WindowType::TextBuffer, 32).unwrap();
+        let window_b = winsys
+            .split(window_a, Some(method.clone()), WindowType::TextBuffer, 33)
+            .unwrap();
+        winsys.split(window_a, Some(method.clone()), WindowType::TextBuffer, 34);
 
-        let sibling = window_a.get_sibling().unwrap();
+        let wina_ref = winsys.get_ref(window_a).unwrap();
+        let sibling = wina_ref.get_sibling().unwrap();
         assert_eq!(sibling.get_rock(), 34);
 
-        let sibling = window_b.get_sibling().unwrap();
+        let winb_ref = winsys.get_ref(window_b).unwrap();
+        let sibling = winb_ref.get_sibling().unwrap();
         assert_eq!(sibling.get_type(), GlkWindowType::Pair);
     }
 
     #[test]
     fn can_destroy_window() {
-        let winsys = WindowManager::<GlkTestWindow>::default();
+        let mut winsys = WindowManager::<GlkTestWindow>::default();
 
         let method = WindowSplitMethod {
             position: WindowSplitPosition::Above,
@@ -708,38 +793,52 @@ mod test {
             border: false,
         };
 
-        let window_a = winsys.open_window(WindowType::TextBuffer, 32);
-        let (_, _) = window_a.split(Some(method.clone()), WindowType::TextBuffer, 33);
+        let window_a = winsys.open_window(WindowType::TextBuffer, 32).unwrap();
+        winsys.split(window_a, Some(method.clone()), WindowType::TextBuffer, 33);
 
-        let (_, window_c) = window_a.split(Some(method.clone()), WindowType::TextBuffer, 34);
-        let (_, window_d) = window_c.split(Some(method.clone()), WindowType::TextBuffer, 35);
+        let window_c = winsys
+            .split(window_a, Some(method.clone()), WindowType::TextBuffer, 34)
+            .unwrap();
+        let window_d = winsys
+            .split(window_c, Some(method.clone()), WindowType::TextBuffer, 35)
+            .unwrap();
 
-        let parent = window_d.get_parent().unwrap();
+        let wind_ref = winsys.get_ref(window_d).unwrap();
+        let parent = wind_ref.get_parent().unwrap();
         let sibling = parent.get_sibling().unwrap();
 
         assert_eq!(sibling.get_rock(), 32);
 
         println!("---\nbefore:");
         winsys._dump();
-        window_d.close_window();
+        winsys.close(window_d);
         println!("\n\n---\nafter:");
         winsys._dump();
 
-        assert_eq!(window_a.get_sibling().unwrap().get_rock(), 34);
+        assert_eq!(
+            winsys
+                .get_ref(window_a)
+                .unwrap()
+                .get_sibling()
+                .unwrap()
+                .get_rock(),
+            34
+        );
     }
 
     #[test]
     fn can_retrieve_window_size() {
-        let winsys = WindowManager::<GlkTestWindow>::default();
-        let root_window = winsys.open_window(WindowType::TextBuffer, 32);
-        let size = root_window.get_size();
+        let mut winsys = WindowManager::<GlkTestWindow>::default();
+        let root_window = winsys.open_window(WindowType::TextBuffer, 32).unwrap();
+        let root_ref = winsys.get_ref(root_window).unwrap();
+        let size = root_ref.get_size();
         assert_eq!(size.width, 12);
         assert_eq!(size.height, 32);
     }
 
     #[test]
     fn can_get_window_constraints() {
-        let winsys = WindowManager::<GlkTestWindow>::default();
+        let mut winsys = WindowManager::<GlkTestWindow>::default();
 
         let method = WindowSplitMethod {
             position: WindowSplitPosition::Above,
@@ -747,10 +846,13 @@ mod test {
             border: false,
         };
 
-        let window_a = winsys.open_window(WindowType::TextBuffer, 32);
-        let (_, window_b) = window_a.split(Some(method.clone()), WindowType::TextBuffer, 33);
+        let window_a = winsys.open_window(WindowType::TextBuffer, 32).unwrap();
+        let window_b = winsys
+            .split(window_a, Some(method.clone()), WindowType::TextBuffer, 33)
+            .unwrap();
 
-        let (pair_method, _) = window_b.get_parent().unwrap().get_arrangement().unwrap();
+        let winb_ref = winsys.get_ref(window_b).unwrap();
+        let (pair_method, _) = winb_ref.get_parent().unwrap().get_arrangement().unwrap();
         assert_eq!(method.position, pair_method.position);
         assert_eq!(method.amount, pair_method.amount);
         assert_eq!(method.border, pair_method.border);
@@ -758,7 +860,7 @@ mod test {
 
     #[test]
     fn default_to_child2_for_key_window() {
-        let winsys = WindowManager::<GlkTestWindow>::default();
+        let mut winsys = WindowManager::<GlkTestWindow>::default();
 
         let method = WindowSplitMethod {
             position: WindowSplitPosition::Above,
@@ -766,16 +868,24 @@ mod test {
             border: false,
         };
 
-        let window_a = winsys.open_window(WindowType::TextBuffer, 32);
-        let (_, window_b) = window_a.split(Some(method.clone()), WindowType::TextBuffer, 33);
+        let window_a = winsys.open_window(WindowType::TextBuffer, 32).unwrap();
+        let window_b = winsys
+            .split(window_a, Some(method.clone()), WindowType::TextBuffer, 33)
+            .unwrap();
 
-        let (_, keywin) = window_b.get_parent().unwrap().get_arrangement().unwrap();
-        assert!(Rc::ptr_eq(&keywin.unwrap().winref, &window_b.winref));
+        let (_, keywin) = winsys
+            .get_ref(window_b)
+            .unwrap()
+            .get_parent()
+            .unwrap()
+            .get_arrangement()
+            .unwrap();
+        assert_eq!(keywin.unwrap().id(), window_b);
     }
 
     #[test]
     fn can_change_key_window_to_child1() {
-        let winsys = WindowManager::<GlkTestWindow>::default();
+        let mut winsys = WindowManager::<GlkTestWindow>::default();
 
         let method = WindowSplitMethod {
             position: WindowSplitPosition::Above,
@@ -783,66 +893,74 @@ mod test {
             border: false,
         };
 
-        let window_a = winsys.open_window(WindowType::TextBuffer, 32);
-        let (_, _) = window_a.split(Some(method.clone()), WindowType::TextBuffer, 33);
+        let window_a = winsys.open_window(WindowType::TextBuffer, 32).unwrap();
+        winsys.split(window_a, Some(method.clone()), WindowType::TextBuffer, 33);
 
-        let parent = window_a.get_parent().unwrap();
-        parent.set_arrangement(method.clone(), Some(&window_a));
+        let wina_ref = winsys.get_ref(window_a).unwrap();
+        let parent = wina_ref.get_parent().unwrap();
+        parent.set_arrangement(method.clone(), Some(&wina_ref));
 
         let (_, keywin) = parent.get_arrangement().unwrap();
-        assert!(Rc::ptr_eq(&keywin.unwrap().winref, &window_a.winref));
+        assert!(Rc::ptr_eq(&keywin.unwrap().winref, &wina_ref.winref));
     }
 
     #[test]
     fn cannot_get_arrangement_for_non_pair_window() {
-        let winsys = WindowManager::<GlkTestWindow>::default();
-        let window_a = winsys.open_window(WindowType::TextBuffer, 32);
-        assert!(window_a.get_arrangement().is_none());
+        let mut winsys = WindowManager::<GlkTestWindow>::default();
+        let window_a = winsys.open_window(WindowType::TextBuffer, 32).unwrap();
+        let wina_ref = winsys.get_ref(window_a).unwrap();
+        assert!(wina_ref.get_arrangement().is_none());
     }
 
     #[test]
     fn can_move_cursor_in_a_window() {
-        let winsys = WindowManager::<GlkTestWindow>::default();
-        let window_a = winsys.open_window(WindowType::TextBuffer, 32);
+        let mut winsys = WindowManager::<GlkTestWindow>::default();
+        let window_a = winsys.open_window(WindowType::TextBuffer, 32).unwrap();
 
         let method = WindowSplitMethod {
             position: WindowSplitPosition::Above,
             amount: WindowSplitAmount::Proportional(20),
             border: false,
         };
-        let (_, window_b) = window_a.split(Some(method), WindowType::TextGrid, 55);
+        let window_b = winsys
+            .split(window_a, Some(method), WindowType::TextGrid, 55)
+            .unwrap();
 
         // text buffers do not use move_cursor
-        window_a.move_cursor(4, 4);
-        assert_eq!(window_a.winref.borrow().window.borrow().cursor_x, 0);
+        let wina_ref = winsys.get_ref(window_a).unwrap();
+        wina_ref.move_cursor(4, 4);
+        assert_eq!(wina_ref.winref.borrow().window.borrow().cursor_x, 0);
 
         // text grid windows DO move the cursor
-        window_b.move_cursor(4, 4);
-        assert_eq!(window_b.winref.borrow().window.borrow().cursor_x, 4);
+        let winb_ref = winsys.get_ref(window_b).unwrap();
+        winb_ref.move_cursor(4, 4);
+        assert_eq!(winb_ref.winref.borrow().window.borrow().cursor_x, 4);
     }
 
     #[test]
     fn can_clear_window() {
-        let winsys = WindowManager::<GlkTestWindow>::default();
-        let window_a = winsys.open_window(WindowType::TextGrid, 32);
-        window_a.move_cursor(5, 5);
-        assert_eq!(window_a.winref.borrow().window.borrow().cursor_x, 5);
-        window_a.clear();
-        assert_eq!(window_a.winref.borrow().window.borrow().cursor_x, 0);
+        let mut winsys = WindowManager::<GlkTestWindow>::default();
+        let window_a = winsys.open_window(WindowType::TextGrid, 32).unwrap();
+        let wina_ref = winsys.get_ref(window_a).unwrap();
+        wina_ref.move_cursor(5, 5);
+        assert_eq!(wina_ref.winref.borrow().window.borrow().cursor_x, 5);
+        wina_ref.clear();
+        assert_eq!(wina_ref.winref.borrow().window.borrow().cursor_x, 0);
     }
 
     #[test]
     fn can_set_input_buffer_in_test_window() {
-        let winsys = WindowManager::<GlkTestWindow>::default();
-        let window_a = winsys.open_window(WindowType::TextGrid, 32);
-        window_a
+        let mut winsys = WindowManager::<GlkTestWindow>::default();
+        let window_a = winsys.open_window(WindowType::TextGrid, 32).unwrap();
+        let wina_ref = winsys.get_ref(window_a).unwrap();
+        wina_ref
             .winref
             .borrow()
             .window
             .borrow_mut()
             .set_input_buffer("test buffer");
         assert_eq!(
-            window_a
+            wina_ref
                 .winref
                 .borrow()
                 .window
@@ -859,7 +977,7 @@ mod test {
     /*
     #[test]
     fn can_put_character_in_window() {
-        let winsys = WindowManager::<GlkTestWindow>::default();
+        let mut winsys = WindowManager::<GlkTestWindow>::default();
         let win = winsys.open_window(WindowType::TextGrid, 32);
         win.put_char(b'a');
         assert_eq!(win.winref.borrow().window.textdata, "a");

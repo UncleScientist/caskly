@@ -5,7 +5,7 @@ pub type GlkStreamID = u32;
 
 #[derive(Default, Debug)]
 pub(crate) struct StreamManager {
-    stream: HashMap<u32, GlkStream>,
+    stream: HashMap<GlkStreamID, GlkStream>,
     val: GlkStreamID,
 }
 
