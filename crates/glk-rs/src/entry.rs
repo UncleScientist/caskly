@@ -168,11 +168,7 @@ impl<T: GlkWindow + Default> Glk<T> {
     ) -> (Option<WindowSplitMethod>, Option<GlkWindowID>) {
         if let Some(winref) = self.win_mgr.get_ref(win) {
             if let Some((method, keywin)) = winref.get_arrangement() {
-                let keywin_id = if let Some(k) = keywin {
-                    Some(k.id())
-                } else {
-                    None
-                };
+                let keywin_id = keywin.map(|k| k.id());
                 return (Some(method), keywin_id);
             }
         }

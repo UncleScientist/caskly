@@ -147,7 +147,8 @@ impl<T: GlkWindow + Default> WindowManager<T> {
     }
 
     pub(crate) fn set_stream_id(&self, win: GlkWindowID, stream: GlkStreamID) -> Option<()> {
-        Some(self.windows.get(&win)?.set_stream_id(stream))
+        self.windows.get(&win)?.set_stream_id(stream);
+        Some(())
     }
 
     pub(crate) fn split(
@@ -174,7 +175,8 @@ impl<T: GlkWindow + Default> WindowManager<T> {
 
     pub(crate) fn close(&mut self, win: GlkWindowID) -> Option<()> {
         let winref = self.windows.get(&win)?;
-        Some(winref.close_window())
+        winref.close_window();
+        Some(())
     }
 
     fn _dump(&self) {
