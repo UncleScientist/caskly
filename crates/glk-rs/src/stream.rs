@@ -10,7 +10,7 @@ pub(crate) struct StreamManager {
 }
 
 /// The stats from the stream that is being closed
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct GlkStreamResult {
     /// number of characters that were read from this stream
     pub read_count: u32,
@@ -119,6 +119,14 @@ impl GlkStream {
         self.sh.borrow().is_window_stream()
     }
 
+    pub fn is_memory_stream(&self) -> bool {
+        self.sh.borrow().is_memory_stream()
+    }
+
+    pub fn get_data(&self) -> Vec<u8> {
+        self.sh.borrow().get_data()
+    }
+
     pub fn get_results(&self) -> GlkStreamResult {
         self.sh.borrow().get_results()
     }
@@ -139,7 +147,10 @@ pub trait StreamHandler: Debug {
     fn get_buffer_uni(&self, maxlen: Option<usize>) -> Vec<char>;
     fn get_line_uni(&self, maxlen: Option<usize>) -> Vec<char>;
 
+    fn get_data(&self) -> Vec<u8>;
+
     fn is_window_stream(&self) -> bool;
+    fn is_memory_stream(&self) -> bool;
     fn increment_output_count(&mut self, bytes: usize);
     fn increment_input_count(&mut self, bytes: usize);
     fn get_results(&self) -> GlkStreamResult;

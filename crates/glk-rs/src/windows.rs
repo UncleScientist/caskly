@@ -678,6 +678,14 @@ pub mod testwin {
             true
         }
 
+        fn is_memory_stream(&self) -> bool {
+            false
+        }
+
+        fn get_data(&self) -> Vec<u8> {
+            panic!("should not be able to extract data from a window");
+        }
+
         fn increment_output_count(&mut self, count: usize) {
             println!("incremeting output count by {count}");
             self.output_bytes += count;

@@ -1,14 +1,18 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use unicode_normalization::UnicodeNormalization;
 
 use crate::gestalt::OutputType;
-use crate::gestalt::*;
 use crate::keycode::Keycode;
+use crate::mem_stream::MemStream;
 use crate::stream::{GlkStreamID, GlkStreamResult, StreamManager};
 use crate::windows::{
     GlkWindow, GlkWindowID, GlkWindowSize, GlkWindowType, WindowManager, WindowRef,
     WindowSplitMethod, WindowType,
 };
 use crate::GlkRock;
+use crate::{gestalt::*, GlkFileMode};
 
 /// The GLK object. TODO: Insert basic usage here
 /// This is the API for GLK interpreted as a Rust API.
@@ -320,6 +324,11 @@ impl<T: GlkWindow + Default> Glk<T> {
     pub fn put_char_stream(&self, streamid: GlkStreamID, ch: u8) {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.put_char(ch);
+            /*
+            if let Some(echo) = stream.get_echo_stream() {
+                echo.put_char(ch);
+            }
+            */
         }
     }
 
@@ -422,13 +431,35 @@ impl<T: GlkWindow + Default> Glk<T> {
      */
 
     /// Closes a stream. Window streams are only close-able through glk.window_close()
-    pub fn stream_close(&mut self, streamid: GlkStreamID) -> Option<GlkStreamResult> {
+    pub fn stream_close(
+        &mut self,
+        streamid: GlkStreamID,
+    ) -> Option<(GlkStreamResult, Option<Vec<u8>>)> {
         let stream = self.stream_mgr.get(streamid)?;
         if stream.is_window_stream() {
             None
+        } else if stream.is_memory_stream() {
+            let result = stream.get_data();
+            Some((self.stream_mgr.close(streamid)?, Some(result)))
         } else {
-            self.stream_mgr.close(streamid)
+            Some((self.stream_mgr.close(streamid)?, None))
         }
+    }
+
+    /*
+     * 5.6.2 - Memory Streams
+     */
+
+    /// Open a memory-based buffer to do stream I/O
+    /// TODO: for read-only streams, we should not have to pass in a mut ref
+    pub fn stream_open_memory(
+        &mut self,
+        buf: Vec<u8>,
+        _file_mode: GlkFileMode,
+        _rock: GlkRock,
+    ) -> GlkStreamID {
+        let mem_stream = Rc::new(RefCell::new(MemStream::new(buf)));
+        self.stream_mgr.new_stream(mem_stream)
     }
 
     /* TEST ONLY FUNCTIONS */
@@ -1054,5 +1085,20 @@ mod test {
         let stream_results = glk.window_close(win2).unwrap();
         assert_eq!(stream_results.read_count, 0);
         assert_eq!(stream_results.write_count, 1);
+    }
+
+    #[test]
+    fn can_open_memory_stream() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+        let buf = vec![0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+        let mem_stream = glk.stream_open_memory(buf, GlkFileMode::Read, 45);
+
+        for i in 0..10 {
+            let ch = glk.get_char_stream(mem_stream).unwrap();
+            assert_eq!(ch, i);
+        }
+
+        assert!(glk.get_char_stream(mem_stream).is_none());
     }
 }
