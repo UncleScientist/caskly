@@ -1,3 +1,5 @@
+use unicode_normalization::UnicodeNormalization;
+
 use crate::gestalt::OutputType;
 use crate::gestalt::*;
 use crate::keycode::Keycode;
@@ -96,6 +98,20 @@ impl<T: GlkWindow + Default> Glk<T> {
         }
 
         result
+    }
+
+    /*
+     * Glk Section 2.6 - Unicode String Normalization
+     */
+
+    /// Convert a string to Normalization Form D
+    pub fn buffer_canon_decompose_uni(s: &str) -> String {
+        s.nfd().collect::<String>()
+    }
+
+    /// Convert a string to Normalization Form C
+    pub fn buffer_canon_normalize_uni(s: &str) -> String {
+        s.nfc().collect::<String>()
     }
 
     /*
