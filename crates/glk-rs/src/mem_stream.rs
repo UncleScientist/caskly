@@ -12,7 +12,7 @@ pub(crate) struct MemStream {
 impl MemStream {
     pub(crate) fn new(buf: Vec<u8>) -> Self {
         Self {
-            buf: Vec::from(buf),
+            buf,
             ..Self::default()
         }
     }

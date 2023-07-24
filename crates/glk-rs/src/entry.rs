@@ -689,10 +689,10 @@ mod test {
 
         // pair1, pair2, win1, win2, win3
         let mut found = [false, false, false, false, false];
-        let mut i = glk.window_iterate();
+        let i = glk.window_iterate();
         let mut count = 0;
         let mut found_pair = None;
-        while let Some(win) = i.next() {
+        for win in i {
             count += 1;
             if win == win1 {
                 found[2] = true;
@@ -821,7 +821,7 @@ mod test {
             .window_open(None, GlkWindowType::TextBuffer, None, 73)
             .unwrap();
         let stream = glk.window_get_stream(win).unwrap();
-        glk.put_string_stream(stream, &"hello, world!");
+        glk.put_string_stream(stream, "hello, world!");
         let win = glk.t_get_winref(win);
         assert_eq!(
             win.winref.borrow().window.borrow().textdata,
