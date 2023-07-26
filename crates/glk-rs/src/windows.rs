@@ -133,7 +133,6 @@ impl<T: GlkWindow + Default> WindowManager<T> {
     }
 
     pub(crate) fn get_window(&self, win: GlkWindowID) -> Option<Rc<RefCell<T>>> {
-        println!("get window {win}...{}", self.windows.len());
         Some(Rc::clone(&self.windows.get(&win)?.winref.borrow().window))
     }
 
@@ -579,99 +578,27 @@ pub mod testwin {
         }
 
         fn get_char(&self) -> Option<u8> {
-            let pos = *self.input_cursor.borrow();
-            if pos >= self.input_buffer.borrow().len() {
-                None
-            } else {
-                *self.input_cursor.borrow_mut() += 1;
-                Some(self.input_buffer.borrow()[pos] as u8)
-            }
+            panic!("can't read windows stream");
         }
 
-        fn get_buffer(&self, maxlen: Option<usize>) -> Vec<u8> {
-            let buflen = self.input_buffer.borrow().len();
-            let mut len = if let Some(len) = maxlen {
-                buflen.min(len)
-            } else {
-                buflen
-            };
-
-            let mut result = Vec::new();
-            while len > 0 {
-                result.push(self.input_buffer.borrow_mut().remove(0) as u8);
-                len -= 1;
-            }
-
-            result
+        fn get_buffer(&self, _maxlen: Option<usize>) -> Vec<u8> {
+            panic!("can't read windows stream");
         }
 
-        fn get_line(&self, maxlen: Option<usize>) -> Vec<u8> {
-            let buflen = self.input_buffer.borrow().len();
-            let mut len = if let Some(len) = maxlen {
-                buflen.min(len)
-            } else {
-                buflen
-            };
-
-            let mut result = Vec::new();
-            while len > 0 {
-                let byte = self.input_buffer.borrow_mut().remove(0) as u8;
-                if byte == b'\n' {
-                    break;
-                }
-                result.push(byte);
-                len -= 1;
-            }
-
-            result
+        fn get_line(&self, _maxlen: Option<usize>) -> Vec<u8> {
+            panic!("can't read windows stream");
         }
 
         fn get_char_uni(&self) -> Option<char> {
-            let pos = *self.input_cursor.borrow();
-            if pos >= self.input_buffer.borrow().len() {
-                None
-            } else {
-                *self.input_cursor.borrow_mut() += 1;
-                Some(self.input_buffer.borrow()[pos])
-            }
+            panic!("can't read windows stream");
         }
 
-        fn get_buffer_uni(&self, maxlen: Option<usize>) -> Vec<char> {
-            let buflen = self.input_buffer.borrow().len();
-            let mut len = if let Some(len) = maxlen {
-                buflen.min(len)
-            } else {
-                buflen
-            };
-
-            let mut result = Vec::new();
-            while len > 0 {
-                result.push(self.input_buffer.borrow_mut().remove(0));
-                len -= 1;
-            }
-
-            result
+        fn get_buffer_uni(&self, _maxlen: Option<usize>) -> String {
+            panic!("can't read windows stream");
         }
 
-        fn get_line_uni(&self, maxlen: Option<usize>) -> Vec<char> {
-            let buflen = self.input_buffer.borrow().len();
-            let mut len = if let Some(len) = maxlen {
-                buflen.min(len)
-            } else {
-                buflen
-            };
-
-            let mut result = Vec::new();
-            while len > 0 {
-                let byte = self.input_buffer.borrow_mut().remove(0);
-                if byte == '\n' {
-                    break;
-                }
-                result.push(byte);
-                len -= 1;
-            }
-
-            result
+        fn get_line_uni(&self, _maxlen: Option<usize>) -> String {
+            panic!("can't read windows stream");
         }
 
         fn is_window_stream(&self) -> bool {
@@ -687,7 +614,6 @@ pub mod testwin {
         }
 
         fn increment_output_count(&mut self, count: usize) {
-            println!("incremeting output count by {count}");
             self.output_bytes += count;
         }
 

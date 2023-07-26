@@ -142,12 +142,10 @@ impl<T: GlkWindow + Default> Glk<T> {
         } else {
             self.win_mgr.open_window(wintype, rock)
         }?;
-        println!("{new_win:?}");
 
         let stream_id = self
             .stream_mgr
-            .new_stream(self.win_mgr.get_window(new_win)?);
-        println!("stream_id = {stream_id}");
+            .new_stream(self.win_mgr.get_window(new_win)?, GlkFileMode::Write);
         self.win_mgr.set_stream_id(new_win, stream_id)?;
 
         Some(new_win)
@@ -409,20 +407,20 @@ impl<T: GlkWindow + Default> Glk<T> {
     }
 
     /// read a stream of unicode characters
-    pub fn get_buffer_stream_uni(&self, streamid: GlkStreamID, len: Option<usize>) -> Vec<char> {
+    pub fn get_buffer_stream_uni(&self, streamid: GlkStreamID, len: Option<usize>) -> String {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.get_buffer_uni(len)
         } else {
-            Vec::new()
+            String::new()
         }
     }
 
     /// read a stream of unicode characters
-    pub fn get_line_stream_uni(&self, streamid: GlkStreamID, len: Option<usize>) -> Vec<char> {
+    pub fn get_line_stream_uni(&self, streamid: GlkStreamID, len: Option<usize>) -> String {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.get_line_uni(len)
         } else {
-            Vec::new()
+            String::new()
         }
     }
 
@@ -455,11 +453,11 @@ impl<T: GlkWindow + Default> Glk<T> {
     pub fn stream_open_memory(
         &mut self,
         buf: Vec<u8>,
-        _file_mode: GlkFileMode,
+        file_mode: GlkFileMode,
         _rock: GlkRock,
     ) -> GlkStreamID {
         let mem_stream = Rc::new(RefCell::new(MemStream::new(buf)));
-        self.stream_mgr.new_stream(mem_stream)
+        self.stream_mgr.new_stream(mem_stream, file_mode)
     }
 
     /* TEST ONLY FUNCTIONS */
@@ -934,36 +932,21 @@ mod test {
     #[test]
     fn can_read_byte_from_stream() {
         let mut glk = Glk::<GlkTestWindow>::new();
-        let win1 = glk
-            .window_open(None, GlkWindowType::TextBuffer, None, 73)
-            .unwrap();
-        let stream1 = glk.window_get_stream(win1).unwrap();
-
-        let win1 = glk.t_get_winref(win1);
-        win1.winref
-            .borrow()
-            .window
-            .borrow_mut()
-            .set_input_buffer("testing");
-        assert_eq!(glk.get_char_stream(stream1), Some(b't'));
+        let mem_stream = glk.stream_open_memory(vec![b't'], GlkFileMode::Read, 45);
+        assert_eq!(glk.get_char_stream(mem_stream), Some(b't'));
     }
 
     #[test]
     fn can_read_byte_buffer_from_stream() {
         let mut glk = Glk::<GlkTestWindow>::new();
-        let win1 = glk
-            .window_open(None, GlkWindowType::TextBuffer, None, 73)
-            .unwrap();
-        let stream1 = glk.window_get_stream(win1).unwrap();
+        let mem_stream = glk.stream_open_memory(
+            vec![b't', b'e', b's', b't', b'i', b'n', b'g'],
+            GlkFileMode::Read,
+            45,
+        );
 
-        let win1 = glk.t_get_winref(win1);
-        win1.winref
-            .borrow()
-            .window
-            .borrow_mut()
-            .set_input_buffer("testing");
         assert_eq!(
-            glk.get_buffer_stream(stream1, None),
+            glk.get_buffer_stream(mem_stream, None),
             "testing".chars().map(|c| c as u8).collect::<Vec<_>>()
         );
     }
@@ -971,27 +954,23 @@ mod test {
     #[test]
     fn can_read_a_line_of_bytes_from_a_stream() {
         let mut glk = Glk::<GlkTestWindow>::new();
-        let win1 = glk
-            .window_open(None, GlkWindowType::TextBuffer, None, 73)
-            .unwrap();
-        let stream1 = glk.window_get_stream(win1).unwrap();
+        let test_string = "testing line 1\ntesting line 2\ntesting line 3\n";
 
-        let win1 = glk.t_get_winref(win1);
-        win1.winref
-            .borrow()
-            .window
-            .borrow_mut()
-            .set_input_buffer("testing line 1\ntesting line 2\ntesting line 3\n");
+        let mut buf = Vec::new();
+        for ch in test_string.chars() {
+            buf.push(ch as u8);
+        }
+        let mem_stream = glk.stream_open_memory(buf, GlkFileMode::Read, 45);
 
         assert_eq!(
-            glk.get_line_stream(stream1, None),
+            glk.get_line_stream(mem_stream, None),
             "testing line 1"
                 .chars()
                 .map(|c| c as u8)
                 .collect::<Vec<_>>()
         );
         assert_eq!(
-            glk.get_line_stream(stream1, None),
+            glk.get_line_stream(mem_stream, None),
             "testing line 2"
                 .chars()
                 .map(|c| c as u8)
@@ -1002,63 +981,52 @@ mod test {
     #[test]
     fn can_read_char_from_stream() {
         let mut glk = Glk::<GlkTestWindow>::new();
-        let win1 = glk
-            .window_open(None, GlkWindowType::TextBuffer, None, 73)
-            .unwrap();
-        let stream1 = glk.window_get_stream(win1).unwrap();
+        let unibuf = vec!['t', 'e', 's', 't', 'i', 'n', 'g'];
 
-        let win1 = glk.t_get_winref(win1);
-        win1.winref
-            .borrow()
-            .window
-            .borrow_mut()
-            .set_input_buffer("testing");
-        assert_eq!(glk.get_char_stream_uni(stream1), Some('t'));
+        let mut buf = Vec::new();
+        for ch in unibuf {
+            buf.push((ch as u32 >> 24) as u8);
+            buf.push(((ch as u32 >> 16) & 0xff) as u8);
+            buf.push(((ch as u32 >> 8) & 0xff) as u8);
+            buf.push((ch as u32 & 0xff) as u8);
+        }
+
+        let mem_stream = glk.stream_open_memory(buf, GlkFileMode::Read, 45);
+        assert_eq!(glk.get_char_stream_uni(mem_stream), Some('t'));
     }
 
     #[test]
     fn can_read_char_buffer_from_stream() {
         let mut glk = Glk::<GlkTestWindow>::new();
-        let win1 = glk
-            .window_open(None, GlkWindowType::TextBuffer, None, 73)
-            .unwrap();
-        let stream1 = glk.window_get_stream(win1).unwrap();
+        let test_string = "testing";
+        let mut buf = Vec::new();
+        for ch in test_string.chars() {
+            buf.push((ch as u32 >> 24) as u8);
+            buf.push(((ch as u32 >> 16) & 0xff) as u8);
+            buf.push(((ch as u32 >> 8) & 0xff) as u8);
+            buf.push((ch as u32 & 0xff) as u8);
+        }
+        let mem_stream = glk.stream_open_memory(buf, GlkFileMode::Read, 45);
 
-        let win1 = glk.t_get_winref(win1);
-        win1.winref
-            .borrow()
-            .window
-            .borrow_mut()
-            .set_input_buffer("testing");
-        assert_eq!(
-            glk.get_buffer_stream_uni(stream1, None),
-            "testing".chars().collect::<Vec<_>>()
-        );
+        assert_eq!(glk.get_buffer_stream_uni(mem_stream, None), "testing");
     }
 
     #[test]
     fn can_read_a_line_of_chars_from_a_stream() {
         let mut glk = Glk::<GlkTestWindow>::new();
-        let win1 = glk
-            .window_open(None, GlkWindowType::TextBuffer, None, 73)
-            .unwrap();
-        let stream1 = glk.window_get_stream(win1).unwrap();
+        let test_string = "testing line 1\ntesting line 2\ntesting line 3\n";
 
-        let win1 = glk.t_get_winref(win1);
-        win1.winref
-            .borrow()
-            .window
-            .borrow_mut()
-            .set_input_buffer("testing line 1\ntesting line 2\ntesting line 3\n");
+        let mut buf = Vec::new();
+        for ch in test_string.chars() {
+            buf.push((ch as u32 >> 24) as u8);
+            buf.push(((ch as u32 >> 16) & 0xff) as u8);
+            buf.push(((ch as u32 >> 8) & 0xff) as u8);
+            buf.push((ch as u32 & 0xff) as u8);
+        }
+        let mem_stream = glk.stream_open_memory(buf, GlkFileMode::Read, 45);
 
-        assert_eq!(
-            glk.get_line_stream_uni(stream1, None),
-            "testing line 1".chars().collect::<Vec<_>>()
-        );
-        assert_eq!(
-            glk.get_line_stream_uni(stream1, None),
-            "testing line 2".chars().collect::<Vec<_>>()
-        );
+        assert_eq!(glk.get_line_stream_uni(mem_stream, None), "testing line 1");
+        assert_eq!(glk.get_line_stream_uni(mem_stream, None), "testing line 2");
     }
 
     #[test]

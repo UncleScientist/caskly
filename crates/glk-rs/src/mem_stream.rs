@@ -16,6 +16,48 @@ impl MemStream {
             ..Self::default()
         }
     }
+
+    fn get_bytes(&self, maxlen: Option<usize>, end_char: Option<u8>) -> Vec<u8> {
+        let remaining_bytes = self.buf.len() - *self.cursor.borrow();
+        let count = if let Some(max) = maxlen {
+            max.min(remaining_bytes)
+        } else {
+            remaining_bytes
+        };
+
+        let mut result = Vec::new();
+        for _ in 0..count {
+            if let Some(ch) = self.get_char() {
+                if Some(ch) == end_char {
+                    break;
+                }
+                result.push(ch);
+            }
+        }
+
+        result
+    }
+
+    fn get_uni(&self, maxlen: Option<usize>, end_char: Option<char>) -> String {
+        let remaining_bytes = self.buf.len() - *self.cursor.borrow();
+        let count = if let Some(max) = maxlen {
+            max.min(remaining_bytes / 4)
+        } else {
+            remaining_bytes / 4
+        };
+
+        let mut result = String::new();
+        for _ in 0..count {
+            if let Some(ch) = self.get_char_uni() {
+                if Some(ch) == end_char {
+                    break;
+                }
+                result.push(ch);
+            }
+        }
+
+        result
+    }
 }
 
 impl StreamHandler for MemStream {
@@ -61,24 +103,29 @@ impl StreamHandler for MemStream {
         }
     }
 
-    fn get_buffer(&self, _maxlen: Option<usize>) -> Vec<u8> {
-        Vec::new()
+    fn get_buffer(&self, maxlen: Option<usize>) -> Vec<u8> {
+        self.get_bytes(maxlen, None)
     }
 
-    fn get_line(&self, _maxlen: Option<usize>) -> Vec<u8> {
-        Vec::new()
+    fn get_line(&self, maxlen: Option<usize>) -> Vec<u8> {
+        self.get_bytes(maxlen, Some(b'\n'))
     }
 
     fn get_char_uni(&self) -> Option<char> {
-        None
+        let mut result = 0u32;
+        for _ in 0..4 {
+            result = (result << 8) | (self.get_char()? as u32);
+        }
+
+        char::from_u32(result)
     }
 
-    fn get_buffer_uni(&self, _maxlen: Option<usize>) -> Vec<char> {
-        Vec::new()
+    fn get_buffer_uni(&self, maxlen: Option<usize>) -> String {
+        self.get_uni(maxlen, None)
     }
 
-    fn get_line_uni(&self, _maxlen: Option<usize>) -> Vec<char> {
-        Vec::new()
+    fn get_line_uni(&self, maxlen: Option<usize>) -> String {
+        self.get_uni(maxlen, Some('\n'))
     }
 
     fn get_data(&self) -> Vec<u8> {

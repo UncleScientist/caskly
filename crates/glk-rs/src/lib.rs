@@ -6,6 +6,7 @@
 type GlkRock = u32;
 
 /// File Modes
+#[derive(Debug)]
 pub enum GlkFileMode {
     /// Stream is read-only
     Read,
@@ -15,6 +16,9 @@ pub enum GlkFileMode {
 
     /// Stream is read-write
     ReadWrite,
+
+    /// Append to end of stream
+    WriteAppend,
 }
 
 /// The main entry point for all things glk

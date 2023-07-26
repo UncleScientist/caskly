@@ -1,6 +1,8 @@
 use std::fmt::Debug;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
+use crate::{GlkFileMode, GlkRock};
+
 pub type GlkStreamID = u32;
 
 #[derive(Default, Debug)]
@@ -19,17 +21,19 @@ pub struct GlkStreamResult {
 }
 
 impl StreamManager {
-    pub(crate) fn new_stream(&mut self, stream: Rc<RefCell<dyn StreamHandler>>) -> GlkStreamID {
-        self.stream.insert(self.val, GlkStream::new(&stream));
+    pub(crate) fn new_stream(
+        &mut self,
+        stream: Rc<RefCell<dyn StreamHandler>>,
+        mode: GlkFileMode,
+    ) -> GlkStreamID {
+        self.stream
+            .insert(self.val, GlkStream::new(&stream, mode, 0));
         self.val += 1;
         self.val - 1
     }
 
-    pub(crate) fn get(&self, id: GlkStreamID) -> Option<GlkStream> {
-        let stream = self.stream.get(&id)?;
-        Some(GlkStream {
-            sh: Rc::clone(&stream.sh),
-        })
+    pub(crate) fn get(&self, id: GlkStreamID) -> Option<&GlkStream> {
+        self.stream.get(&id)
     }
 
     pub(crate) fn close(&mut self, id: GlkStreamID) -> Option<GlkStreamResult> {
@@ -41,41 +45,74 @@ impl StreamManager {
 #[derive(Debug)]
 pub struct GlkStream {
     sh: Rc<RefCell<dyn StreamHandler>>,
+    mode: GlkFileMode,
+    _rock: GlkRock,
 }
 
 impl GlkStream {
-    pub(crate) fn new(stream: &Rc<RefCell<dyn StreamHandler>>) -> Self {
+    pub(crate) fn new(
+        stream: &Rc<RefCell<dyn StreamHandler>>,
+        mode: GlkFileMode,
+        _rock: GlkRock,
+    ) -> Self {
         Self {
             sh: Rc::clone(stream),
+            mode,
+            _rock,
+        }
+    }
+
+    fn check_write(&self) -> bool {
+        if matches!(
+            self.mode,
+            GlkFileMode::Write | GlkFileMode::ReadWrite | GlkFileMode::WriteAppend
+        ) {
+            true
+        } else {
+            panic!("cannot write to a non-writable stream");
+        }
+    }
+
+    fn check_read(&self) -> bool {
+        if matches!(self.mode, GlkFileMode::Read | GlkFileMode::ReadWrite) {
+            true
+        } else {
+            panic!("cannot write to a non-readable stream");
         }
     }
 
     pub fn put_char(&self, ch: u8) {
+        self.check_write();
         self.sh.borrow_mut().put_char(ch);
         self.sh.borrow_mut().increment_output_count(1);
     }
 
     pub fn put_string(&self, s: &str) {
+        self.check_write();
         self.sh.borrow_mut().put_string(s);
         self.sh.borrow_mut().increment_output_count(s.len());
     }
 
     pub fn put_buffer(&self, buf: &[u8]) {
+        self.check_write();
         self.sh.borrow_mut().put_buffer(buf);
         self.sh.borrow_mut().increment_output_count(buf.len());
     }
 
     pub fn put_char_uni(&self, ch: char) {
+        self.check_write();
         self.sh.borrow_mut().put_char_uni(ch);
         self.sh.borrow_mut().increment_output_count(4);
     }
 
     pub fn put_buffer_uni(&self, buf: &[char]) {
+        self.check_write();
         self.sh.borrow_mut().put_buffer_uni(buf);
         self.sh.borrow_mut().increment_output_count(4 * buf.len());
     }
 
     pub fn get_char(&self) -> Option<u8> {
+        self.check_read();
         let ch = self.sh.borrow().get_char();
         if ch.is_some() {
             self.sh.borrow_mut().increment_input_count(1);
@@ -84,18 +121,21 @@ impl GlkStream {
     }
 
     pub fn get_buffer(&self, maxlen: Option<usize>) -> Vec<u8> {
+        self.check_read();
         let result = self.sh.borrow().get_buffer(maxlen);
         self.sh.borrow_mut().increment_input_count(result.len());
         result
     }
 
     pub fn get_line(&self, maxlen: Option<usize>) -> Vec<u8> {
+        self.check_read();
         let result = self.sh.borrow().get_line(maxlen);
         self.sh.borrow_mut().increment_input_count(result.len());
         result
     }
 
     pub fn get_char_uni(&self) -> Option<char> {
+        self.check_read();
         let ch = self.sh.borrow().get_char_uni();
         if ch.is_some() {
             self.sh.borrow_mut().increment_input_count(4);
@@ -103,13 +143,15 @@ impl GlkStream {
         ch
     }
 
-    pub fn get_buffer_uni(&self, maxlen: Option<usize>) -> Vec<char> {
+    pub fn get_buffer_uni(&self, maxlen: Option<usize>) -> String {
+        self.check_read();
         let result = self.sh.borrow().get_buffer_uni(maxlen);
         self.sh.borrow_mut().increment_input_count(result.len() * 4);
         result
     }
 
-    pub fn get_line_uni(&self, maxlen: Option<usize>) -> Vec<char> {
+    pub fn get_line_uni(&self, maxlen: Option<usize>) -> String {
+        self.check_read();
         let result = self.sh.borrow().get_line_uni(maxlen);
         self.sh.borrow_mut().increment_input_count(result.len() * 4);
         result
@@ -144,8 +186,8 @@ pub trait StreamHandler: Debug {
     fn get_buffer(&self, maxlen: Option<usize>) -> Vec<u8>;
     fn get_line(&self, maxlen: Option<usize>) -> Vec<u8>;
     fn get_char_uni(&self) -> Option<char>;
-    fn get_buffer_uni(&self, maxlen: Option<usize>) -> Vec<char>;
-    fn get_line_uni(&self, maxlen: Option<usize>) -> Vec<char>;
+    fn get_buffer_uni(&self, maxlen: Option<usize>) -> String;
+    fn get_line_uni(&self, maxlen: Option<usize>) -> String;
 
     fn get_data(&self) -> Vec<u8>;
 
