@@ -609,6 +609,16 @@ pub mod testwin {
             false
         }
 
+        fn get_position(&self) -> u32 {
+            // Glk spec section 5.4, window streams always return 0 for get_position()
+            0
+        }
+
+        fn set_position(&mut self, _pos: i32, _seekmode: crate::GlkSeekMode) -> Option<()> {
+            // Glk Spec section 5.4, window streams ignore calls to set_position
+            Some(())
+        }
+
         fn get_data(&self) -> Vec<u8> {
             panic!("should not be able to extract data from a window");
         }

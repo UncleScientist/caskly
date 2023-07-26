@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::{GlkFileMode, GlkRock};
+use crate::{GlkFileMode, GlkRock, GlkSeekMode};
 
 pub type GlkStreamID = u32;
 
@@ -165,6 +165,14 @@ impl GlkStream {
         self.sh.borrow().is_memory_stream()
     }
 
+    pub fn get_position(&self) -> u32 {
+        self.sh.borrow().get_position()
+    }
+
+    pub fn set_position(&self, pos: i32, mode: GlkSeekMode) -> Option<()> {
+        self.sh.borrow_mut().set_position(pos, mode)
+    }
+
     pub fn get_data(&self) -> Vec<u8> {
         self.sh.borrow().get_data()
     }
@@ -188,6 +196,9 @@ pub trait StreamHandler: Debug {
     fn get_char_uni(&self) -> Option<char>;
     fn get_buffer_uni(&self, maxlen: Option<usize>) -> String;
     fn get_line_uni(&self, maxlen: Option<usize>) -> String;
+
+    fn get_position(&self) -> u32;
+    fn set_position(&mut self, pos: i32, seekmode: GlkSeekMode) -> Option<()>;
 
     fn get_data(&self) -> Vec<u8>;
 

@@ -1,6 +1,9 @@
 use std::cell::RefCell;
 
-use crate::stream::{GlkStreamResult, StreamHandler};
+use crate::{
+    stream::{GlkStreamResult, StreamHandler},
+    GlkSeekMode,
+};
 
 #[derive(Debug, Default)]
 pub(crate) struct MemStream {
@@ -126,6 +129,25 @@ impl StreamHandler for MemStream {
 
     fn get_line_uni(&self, maxlen: Option<usize>) -> String {
         self.get_uni(maxlen, Some('\n'))
+    }
+
+    fn get_position(&self) -> u32 {
+        *self.cursor.borrow() as u32
+    }
+
+    fn set_position(&mut self, pos: i32, seekmode: crate::GlkSeekMode) -> Option<()> {
+        let new_cursor = match seekmode {
+            GlkSeekMode::Start => pos,
+            GlkSeekMode::Current => *self.cursor.borrow() as i32 + pos,
+            GlkSeekMode::End => self.buf.len() as i32 + pos,
+        };
+
+        if new_cursor < 0 || new_cursor > self.buf.len() as i32 {
+            None
+        } else {
+            *self.cursor.borrow_mut() = new_cursor as usize;
+            Some(())
+        }
     }
 
     fn get_data(&self) -> Vec<u8> {

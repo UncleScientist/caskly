@@ -21,6 +21,19 @@ pub enum GlkFileMode {
     WriteAppend,
 }
 
+/// Seek Modes
+#[derive(Debug)]
+pub enum GlkSeekMode {
+    /// Seek to a position offset from the beginning of the file
+    Start,
+
+    /// Seek to a position relative to the current offset in the file
+    Current,
+
+    /// Seek to a position offset from the end of the file (offset must be 0 or negative)
+    End,
+}
+
 /// The main entry point for all things glk
 pub mod entry;
 pub use entry::Glk;

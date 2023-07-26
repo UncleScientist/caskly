@@ -11,8 +11,8 @@ use crate::windows::{
     GlkWindow, GlkWindowID, GlkWindowSize, GlkWindowType, WindowManager, WindowRef,
     WindowSplitMethod, WindowType,
 };
-use crate::GlkRock;
 use crate::{gestalt::*, GlkFileMode};
+use crate::{GlkRock, GlkSeekMode};
 
 /// The GLK object. TODO: Insert basic usage here
 /// This is the API for GLK interpreted as a Rust API.
@@ -445,6 +445,27 @@ impl<T: GlkWindow + Default> Glk<T> {
     }
 
     /*
+     * 5.4 - Stream Positions
+     */
+
+    /// Get the position within a stream. Return value is offset from the beginning of the stream
+    pub fn stream_get_position(&self, streamid: GlkStreamID) -> Option<u32> {
+        let stream = self.stream_mgr.get(streamid)?;
+        Some(stream.get_position())
+    }
+
+    /// Sets the position of the next read/write location in the stream
+    pub fn stream_set_position(
+        &self,
+        streamid: GlkStreamID,
+        pos: i32,
+        mode: GlkSeekMode,
+    ) -> Option<()> {
+        let stream = self.stream_mgr.get(streamid)?;
+        stream.set_position(pos, mode)
+    }
+
+    /*
      * 5.6.2 - Memory Streams
      */
 
@@ -498,7 +519,10 @@ impl ToChar for char {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::windows::{testwin::GlkTestWindow, WindowSplitAmount, WindowSplitPosition};
+    use crate::{
+        windows::{testwin::GlkTestWindow, WindowSplitAmount, WindowSplitPosition},
+        GlkSeekMode,
+    };
 
     #[test]
     fn can_get_glk_version() {
@@ -1056,17 +1080,42 @@ mod test {
     }
 
     #[test]
-    fn can_open_memory_stream() {
+    fn can_get_stream_position() {
         let mut glk = Glk::<GlkTestWindow>::new();
-        let buf = vec![0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let mem_stream = glk.stream_open_memory(
+            vec![b't', b'e', b's', b't', b'i', b'n', b'g'],
+            GlkFileMode::Read,
+            45,
+        );
 
-        let mem_stream = glk.stream_open_memory(buf, GlkFileMode::Read, 45);
+        assert_eq!(glk.stream_get_position(mem_stream).unwrap(), 0);
+        glk.get_char_stream(mem_stream);
+        assert_eq!(glk.stream_get_position(mem_stream).unwrap(), 1);
+    }
 
-        for i in 0..10 {
-            let ch = glk.get_char_stream(mem_stream).unwrap();
-            assert_eq!(ch, i);
-        }
+    #[test]
+    fn can_seek_within_memory_stream() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+        let mem_stream = glk.stream_open_memory(
+            vec![b'b', b'e', b's', b't', b'i', b'n', b'g'],
+            GlkFileMode::Read,
+            45,
+        );
 
-        assert!(glk.get_char_stream(mem_stream).is_none());
+        glk.stream_set_position(mem_stream, 4, GlkSeekMode::Start);
+        assert_eq!(glk.get_char_stream(mem_stream), Some(b'i'));
+
+        glk.stream_set_position(mem_stream, -4, GlkSeekMode::End);
+        assert_eq!(glk.get_char_stream(mem_stream), Some(b't'));
+
+        glk.stream_set_position(mem_stream, -2, GlkSeekMode::Current);
+        assert_eq!(glk.get_char_stream(mem_stream), Some(b's'));
+
+        assert!(glk
+            .stream_set_position(mem_stream, -2, GlkSeekMode::Start)
+            .is_none());
+        assert!(glk
+            .stream_set_position(mem_stream, 2, GlkSeekMode::End)
+            .is_none());
     }
 }
