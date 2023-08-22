@@ -77,7 +77,7 @@ impl GlkStream {
         if matches!(self.mode, GlkFileMode::Read | GlkFileMode::ReadWrite) {
             true
         } else {
-            panic!("cannot write to a non-readable stream");
+            panic!("cannot read from a non-readable stream");
         }
     }
 

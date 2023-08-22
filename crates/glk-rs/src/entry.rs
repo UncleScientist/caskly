@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use unicode_normalization::UnicodeNormalization;
 
+use crate::file_stream::{FileStream, GlkFileRef};
 use crate::gestalt::OutputType;
 use crate::keycode::Keycode;
 use crate::mem_stream::MemStream;
@@ -11,7 +12,7 @@ use crate::windows::{
     GlkWindow, GlkWindowID, GlkWindowSize, GlkWindowType, WindowManager, WindowRef,
     WindowSplitMethod, WindowType,
 };
-use crate::{gestalt::*, GlkFileMode};
+use crate::{gestalt::*, GlkFileMode, GlkFileUsage};
 use crate::{GlkRock, GlkSeekMode};
 
 /// The GLK object. TODO: Insert basic usage here
@@ -425,7 +426,7 @@ impl<T: GlkWindow + Default> Glk<T> {
     }
 
     /*
-     * 5.3 - Closing Streams
+     * Glk Section 5.3 - Closing Streams
      */
 
     /// Closes a stream. Window streams are only close-able through glk.window_close()
@@ -445,7 +446,7 @@ impl<T: GlkWindow + Default> Glk<T> {
     }
 
     /*
-     * 5.4 - Stream Positions
+     * Glk Section 5.4 - Stream Positions
      */
 
     /// Get the position within a stream. Return value is offset from the beginning of the stream
@@ -466,7 +467,7 @@ impl<T: GlkWindow + Default> Glk<T> {
     }
 
     /*
-     * 5.6.2 - Memory Streams
+     * Glk Section 5.6.2 - Memory Streams
      */
 
     /// Open a memory-based buffer to do stream I/O
@@ -479,6 +480,31 @@ impl<T: GlkWindow + Default> Glk<T> {
     ) -> GlkStreamID {
         let mem_stream = Rc::new(RefCell::new(MemStream::new(buf)));
         self.stream_mgr.new_stream(mem_stream, file_mode)
+    }
+
+    /*
+     * Glk Section 5.6.3 - File Streams
+     */
+
+    /// open a file stream for reading or writing, or both
+    pub fn stream_open_file(
+        &mut self,
+        fileref: &GlkFileRef,
+        mode: GlkFileMode,
+        rock: GlkRock,
+    ) -> Option<GlkStreamID> {
+        let file_stream = Rc::new(RefCell::new(FileStream::new(fileref, rock)?));
+        Some(self.stream_mgr.new_stream(file_stream, mode))
+    }
+
+    /*
+     * Glk Section 6.1 - The Types of File References
+     */
+
+    /// Creates a reference to a temporary file. It is always a new file (one which does not yet
+    /// exist). The file (once created) will be somewhere out of the player's way
+    pub fn fileref_create_temp(&self, usage: GlkFileUsage, rock: GlkRock) -> Option<GlkFileRef> {
+        GlkFileRef::create_temp_file(usage, rock)
     }
 
     /* TEST ONLY FUNCTIONS */
@@ -1117,5 +1143,22 @@ mod test {
         assert!(glk
             .stream_set_position(mem_stream, 2, GlkSeekMode::End)
             .is_none());
+    }
+
+    #[test]
+    fn can_open_a_file_and_write_to_it() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+        let fileref = glk.fileref_create_temp(GlkFileUsage::Data, 23).unwrap();
+        let stream = glk
+            .stream_open_file(&fileref, GlkFileMode::ReadWrite, 24)
+            .unwrap();
+        glk.put_string_stream(stream, "This is a test of a temp file");
+        glk.stream_set_position(stream, 0, GlkSeekMode::Start);
+        let result = glk
+            .get_line_stream(stream, None)
+            .iter()
+            .map(|x| *x as char)
+            .collect::<String>();
+        assert_eq!(result, "This is a test of a temp file".to_string());
     }
 }
