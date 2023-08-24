@@ -544,6 +544,14 @@ impl<T: GlkWindow + Default> Glk<T> {
             .create_named_file(usage, name.as_ref().to_path_buf(), rock)
     }
 
+    /*
+     * Glk Section 6.2 - Other File Reference Functions
+     */
+    /// Deletes the file referred to by the file reference. It does not destroy the fileref itself.
+    pub fn fileref_delete_file(&mut self, filerefid: GlkFileRef) {
+        self.fileref_mgr.delete_file_by_id(filerefid);
+    }
+
     /* TEST ONLY FUNCTIONS */
     #[cfg(test)]
     pub(crate) fn t_get_winref(&self, win: GlkWindowID) -> WindowRef<T> {
@@ -1208,7 +1216,7 @@ mod test {
         let stream = glk
             .stream_open_file(fileref, GlkFileMode::Write, 24)
             .unwrap();
-        glk.put_string_stream(stream, "This is a test of a temp file");
+        glk.put_string_stream(stream, "This is a test of a named file");
         glk.stream_close(stream);
 
         let stream = glk
@@ -1219,6 +1227,43 @@ mod test {
             .iter()
             .map(|x| *x as char)
             .collect::<String>();
-        assert_eq!(result, "This is a test of a temp file".to_string());
+        assert_eq!(result, "This is a test of a named file".to_string());
+
+        glk.fileref_delete_file(fileref);
+    }
+
+    #[test]
+    fn can_append_to_a_file() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+        let fileref = glk
+            .fileref_create_by_name(GlkFileUsage::Data, "append_file.txt", 23)
+            .unwrap();
+        let stream = glk
+            .stream_open_file(fileref, GlkFileMode::Write, 24)
+            .unwrap();
+        glk.put_string_stream(stream, "This is a test of an appended file\n");
+        glk.stream_close(stream);
+
+        let stream = glk
+            .stream_open_file(fileref, GlkFileMode::WriteAppend, 24)
+            .unwrap();
+        glk.put_string_stream(stream, "This is the second line of an appended file\n");
+        glk.stream_close(stream);
+
+        let stream = glk
+            .stream_open_file(fileref, GlkFileMode::Read, 24)
+            .unwrap();
+        let result = glk
+            .get_line_stream(stream, None)
+            .iter()
+            .map(|x| *x as char)
+            .collect::<String>();
+        assert_eq!(
+            result,
+            "This is a test of an appended file\nThis is the second line of an appended file\n"
+                .to_string()
+        );
+
+        //glk.fileref_delete_file(fileref);
     }
 }

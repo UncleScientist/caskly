@@ -30,7 +30,7 @@ impl FileRefManager {
         usage: GlkFileUsage,
         rock: GlkRock,
     ) -> Option<GlkFileRef> {
-        self.create_named_file(usage, Temp::new_file().unwrap().to_path_buf(), rock)
+        self.create_file(usage, Temp::new_file().unwrap().to_path_buf(), rock, true)
     }
 
     pub(crate) fn create_named_file(
@@ -39,19 +39,35 @@ impl FileRefManager {
         name: PathBuf,
         rock: GlkRock,
     ) -> Option<GlkFileRef> {
+        self.create_file(usage, Temp::new_file().unwrap().to_path_buf(), rock, false)
+    }
+
+    fn create_file(
+        &mut self,
+        usage: GlkFileUsage,
+        name: PathBuf,
+        rock: GlkRock,
+        is_temp: bool,
+    ) -> Option<GlkFileRef> {
         self.fileref.insert(
             self.val,
             FileRef {
                 _usage: usage,
                 name,
                 _rock: rock,
-                is_temp: true,
+                is_temp,
             },
         );
 
         self.val += 1;
 
         Some(self.val - 1)
+    }
+
+    pub(crate) fn delete_file_by_id(&mut self, id: GlkFileRef) {
+        if let Some(file) = self.fileref.get(&id) {
+            let _ = std::fs::remove_file(&file.name);
+        }
     }
 }
 
@@ -99,13 +115,16 @@ impl FileStream {
     }
 
     pub(crate) fn open_file(fileref: &FileRef, mode: GlkFileMode, rock: GlkRock) -> Option<Self> {
-        let fp = OpenOptions::new()
+        let mut options = OpenOptions::new();
+        let options = options
             .read(mode.is_read())
             .write(mode.is_write())
+            .append(mode == GlkFileMode::WriteAppend)
             .create(mode != GlkFileMode::Read)
-            .truncate(mode == GlkFileMode::Write)
-            .open(fileref.name.clone())
-            .ok()?;
+            .truncate(mode == GlkFileMode::Write);
+
+        println!("options = {options:?}");
+        let fp = options.open(fileref.name.clone()).ok()?;
 
         Some(Self {
             _fileref: fileref.clone(),
