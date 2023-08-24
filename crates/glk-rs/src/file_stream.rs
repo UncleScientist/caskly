@@ -1,5 +1,6 @@
 use mktemp::Temp;
 use std::{
+    collections::HashMap,
     fs::{File, OpenOptions},
     io::{BufRead, BufReader, Seek, SeekFrom, Write},
     path::PathBuf,
@@ -7,12 +8,56 @@ use std::{
 
 use crate::{
     stream::{GlkStreamResult, StreamHandler},
-    GlkFileUsage, GlkRock,
+    GlkFileMode, GlkFileUsage, GlkRock,
 };
 
 /// A reference to a file
+pub type GlkFileRef = u32;
+
+#[derive(Default, Debug)]
+pub(crate) struct FileRefManager {
+    fileref: HashMap<GlkFileRef, FileRef>,
+    val: GlkFileRef,
+}
+
+impl FileRefManager {
+    pub(crate) fn get(&self, id: GlkFileRef) -> Option<&FileRef> {
+        self.fileref.get(&id)
+    }
+
+    pub(crate) fn create_temp_file(
+        &mut self,
+        usage: GlkFileUsage,
+        rock: GlkRock,
+    ) -> Option<GlkFileRef> {
+        self.create_named_file(usage, Temp::new_file().unwrap().to_path_buf(), rock)
+    }
+
+    pub(crate) fn create_named_file(
+        &mut self,
+        usage: GlkFileUsage,
+        name: PathBuf,
+        rock: GlkRock,
+    ) -> Option<GlkFileRef> {
+        self.fileref.insert(
+            self.val,
+            FileRef {
+                _usage: usage,
+                name,
+                _rock: rock,
+                is_temp: true,
+            },
+        );
+
+        self.val += 1;
+
+        Some(self.val - 1)
+    }
+}
+
+/// A reference to a file
 #[derive(Clone, Debug)]
-pub struct GlkFileRef {
+pub(crate) struct FileRef {
     /// The usage of the file
     _usage: GlkFileUsage,
 
@@ -21,28 +66,23 @@ pub struct GlkFileRef {
 
     /// The file reference rock
     _rock: GlkRock,
+
+    /// are we creating a temporary file
+    pub(crate) is_temp: bool,
 }
 
-impl GlkFileRef {
-    pub(crate) fn create_temp_file(usage: GlkFileUsage, rock: GlkRock) -> Option<Self> {
-        Some(Self {
-            _usage: usage,
-            name: Temp::new_file().unwrap().to_path_buf(),
-            _rock: rock,
-        })
-    }
-}
+impl FileRef {}
 
 #[derive(Debug)]
 pub(crate) struct FileStream {
-    _fileref: GlkFileRef,
+    _fileref: FileRef,
     _rock: GlkRock,
-    fp: File,
+    fp: Option<File>,
     result: GlkStreamResult,
 }
 
 impl FileStream {
-    pub(crate) fn new(fileref: &GlkFileRef, rock: GlkRock) -> Option<Self> {
+    pub(crate) fn create_temp(fileref: &FileRef, rock: GlkRock) -> Option<Self> {
         let fp = OpenOptions::new()
             .read(true)
             .write(true)
@@ -53,19 +93,44 @@ impl FileStream {
         Some(Self {
             _fileref: fileref.clone(),
             _rock: rock,
-            fp,
+            fp: Some(fp),
+            result: GlkStreamResult::default(),
+        })
+    }
+
+    pub(crate) fn open_file(fileref: &FileRef, mode: GlkFileMode, rock: GlkRock) -> Option<Self> {
+        let fp = OpenOptions::new()
+            .read(mode.is_read())
+            .write(mode.is_write())
+            .create(mode != GlkFileMode::Read)
+            .truncate(mode == GlkFileMode::Write)
+            .open(fileref.name.clone())
+            .ok()?;
+
+        Some(Self {
+            _fileref: fileref.clone(),
+            _rock: rock,
+            fp: Some(fp),
             result: GlkStreamResult::default(),
         })
     }
 }
 
 impl StreamHandler for FileStream {
+    fn close(&mut self) {
+        let _ = self.fp.take();
+    }
+
     fn put_char(&mut self, ch: u8) {
-        let _ = write!(self.fp, "{ch}");
+        if let Some(fp) = self.fp.as_mut() {
+            let _ = write!(fp, "{ch}");
+        }
     }
 
     fn put_string(&mut self, s: &str) {
-        let _ = write!(self.fp, "{s}");
+        if let Some(fp) = self.fp.as_mut() {
+            let _ = write!(fp, "{s}");
+        }
     }
 
     fn put_buffer(&mut self, _buf: &[u8]) {
@@ -90,17 +155,20 @@ impl StreamHandler for FileStream {
 
     fn get_line(&self, _maxlen: Option<usize>) -> Vec<u8> {
         let mut result = String::from("");
-        let file_clone = if let Ok(cloned) = self.fp.try_clone() {
+        let fp = if let Some(fp) = self.fp.as_ref() {
+            fp.try_clone()
+        } else {
+            return Vec::new();
+        };
+        let file_clone = if let Ok(cloned) = fp {
             cloned
         } else {
-            println!("could not clone file");
             return Vec::new();
         };
 
         let mut br = BufReader::new(file_clone);
 
-        let read_result = br.read_line(&mut result);
-        println!("read_result = {read_result:?}, result = {result}");
+        let _ = br.read_line(&mut result);
 
         result.chars().map(|x| x as u8).collect()
     }
@@ -128,7 +196,9 @@ impl StreamHandler for FileStream {
             crate::GlkSeekMode::End if pos <= 0 => SeekFrom::End(pos as i64),
             _ => return None,
         };
-        self.fp.seek(seek_to).ok()?;
+        if let Some(fp) = self.fp.as_mut() {
+            fp.seek(seek_to).ok()?;
+        }
         Some(())
     }
 
@@ -137,11 +207,11 @@ impl StreamHandler for FileStream {
     }
 
     fn is_window_stream(&self) -> bool {
-        todo!()
+        false
     }
 
     fn is_memory_stream(&self) -> bool {
-        todo!()
+        false
     }
 
     fn increment_output_count(&mut self, count: usize) {
@@ -153,6 +223,6 @@ impl StreamHandler for FileStream {
     }
 
     fn get_results(&self) -> crate::stream::GlkStreamResult {
-        todo!()
+        self.result.clone()
     }
 }

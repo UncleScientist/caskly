@@ -557,6 +557,8 @@ pub mod testwin {
     }
 
     impl StreamHandler for GlkTestWindow {
+        fn close(&mut self) {}
+
         fn put_char(&mut self, ch: u8) {
             self.textdata.push(ch as char);
         }

@@ -6,7 +6,7 @@
 type GlkRock = u32;
 
 /// File Modes
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum GlkFileMode {
     /// Stream is read-only
     Read,
@@ -19,6 +19,21 @@ pub enum GlkFileMode {
 
     /// Append to end of stream
     WriteAppend,
+}
+
+impl GlkFileMode {
+    /// is one of the read modes
+    pub fn is_read(&self) -> bool {
+        matches!(self, GlkFileMode::Read | GlkFileMode::ReadWrite)
+    }
+
+    /// is one of the write modes
+    pub fn is_write(&self) -> bool {
+        matches!(
+            self,
+            GlkFileMode::Write | GlkFileMode::ReadWrite | GlkFileMode::WriteAppend
+        )
+    }
 }
 
 /// Seek Modes

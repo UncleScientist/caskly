@@ -64,6 +64,8 @@ impl MemStream {
 }
 
 impl StreamHandler for MemStream {
+    fn close(&mut self) {}
+
     fn put_char(&mut self, ch: u8) {
         if *self.cursor.borrow() < self.buf.len() {
             self.buf[*self.cursor.borrow()] = ch;

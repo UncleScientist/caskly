@@ -1,9 +1,10 @@
 use std::cell::RefCell;
+use std::path::Path;
 use std::rc::Rc;
 
 use unicode_normalization::UnicodeNormalization;
 
-use crate::file_stream::{FileStream, GlkFileRef};
+use crate::file_stream::{FileRefManager, FileStream, GlkFileRef};
 use crate::gestalt::OutputType;
 use crate::keycode::Keycode;
 use crate::mem_stream::MemStream;
@@ -21,6 +22,7 @@ use crate::{GlkRock, GlkSeekMode};
 pub struct Glk<T: GlkWindow + Default + 'static> {
     win_mgr: WindowManager<T>,
     stream_mgr: StreamManager,
+    fileref_mgr: FileRefManager,
     default_stream: Option<GlkStreamID>,
 }
 
@@ -489,12 +491,31 @@ impl<T: GlkWindow + Default> Glk<T> {
     /// open a file stream for reading or writing, or both
     pub fn stream_open_file(
         &mut self,
-        fileref: &GlkFileRef,
+        filerefid: GlkFileRef,
         mode: GlkFileMode,
         rock: GlkRock,
     ) -> Option<GlkStreamID> {
-        let file_stream = Rc::new(RefCell::new(FileStream::new(fileref, rock)?));
+        let fileref = self.fileref_mgr.get(filerefid)?;
+
+        let file_stream = if fileref.is_temp {
+            Rc::new(RefCell::new(FileStream::create_temp(fileref, rock)?))
+        } else {
+            Rc::new(RefCell::new(FileStream::open_file(fileref, mode, rock)?))
+        };
+
         Some(self.stream_mgr.new_stream(file_stream, mode))
+    }
+
+    /// open a file stream using unicode encoding. If opening in text mode, the file
+    /// is assumed to be UTF-8. If opening in binary mode, then every character is written
+    /// and read as a four-byte big-endian value
+    pub fn stream_open_file_uni(
+        &mut self,
+        _fileref: GlkFileRef,
+        _mode: GlkFileMode,
+        _rock: GlkRock,
+    ) -> Option<GlkStreamID> {
+        todo!();
     }
 
     /*
@@ -503,8 +524,24 @@ impl<T: GlkWindow + Default> Glk<T> {
 
     /// Creates a reference to a temporary file. It is always a new file (one which does not yet
     /// exist). The file (once created) will be somewhere out of the player's way
-    pub fn fileref_create_temp(&self, usage: GlkFileUsage, rock: GlkRock) -> Option<GlkFileRef> {
-        GlkFileRef::create_temp_file(usage, rock)
+    pub fn fileref_create_temp(
+        &mut self,
+        usage: GlkFileUsage,
+        rock: GlkRock,
+    ) -> Option<GlkFileRef> {
+        self.fileref_mgr.create_temp_file(usage, rock)
+    }
+
+    /// creates a reference to a file with a specific name. The file will be in a fixed location
+    /// relevant to your program, and visible to the player
+    pub fn fileref_create_by_name<P: AsRef<Path>>(
+        &mut self,
+        usage: GlkFileUsage,
+        name: P,
+        rock: GlkRock,
+    ) -> Option<GlkFileRef> {
+        self.fileref_mgr
+            .create_named_file(usage, name.as_ref().to_path_buf(), rock)
     }
 
     /* TEST ONLY FUNCTIONS */
@@ -1150,10 +1187,33 @@ mod test {
         let mut glk = Glk::<GlkTestWindow>::new();
         let fileref = glk.fileref_create_temp(GlkFileUsage::Data, 23).unwrap();
         let stream = glk
-            .stream_open_file(&fileref, GlkFileMode::ReadWrite, 24)
+            .stream_open_file(fileref, GlkFileMode::ReadWrite, 24)
             .unwrap();
         glk.put_string_stream(stream, "This is a test of a temp file");
         glk.stream_set_position(stream, 0, GlkSeekMode::Start);
+        let result = glk
+            .get_line_stream(stream, None)
+            .iter()
+            .map(|x| *x as char)
+            .collect::<String>();
+        assert_eq!(result, "This is a test of a temp file".to_string());
+    }
+
+    #[test]
+    fn can_write_to_a_non_temp_file() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+        let fileref = glk
+            .fileref_create_by_name(GlkFileUsage::Data, "io_file.txt", 23)
+            .unwrap();
+        let stream = glk
+            .stream_open_file(fileref, GlkFileMode::Write, 24)
+            .unwrap();
+        glk.put_string_stream(stream, "This is a test of a temp file");
+        glk.stream_close(stream);
+
+        let stream = glk
+            .stream_open_file(fileref, GlkFileMode::Read, 24)
+            .unwrap();
         let result = glk
             .get_line_stream(stream, None)
             .iter()

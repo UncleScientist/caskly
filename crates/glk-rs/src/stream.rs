@@ -38,6 +38,7 @@ impl StreamManager {
 
     pub(crate) fn close(&mut self, id: GlkStreamID) -> Option<GlkStreamResult> {
         let stream = self.stream.remove(&id)?;
+        stream.sh.borrow_mut().close();
         Some(stream.get_results())
     }
 }
@@ -201,6 +202,8 @@ pub trait StreamHandler: Debug {
     fn set_position(&mut self, pos: i32, seekmode: GlkSeekMode) -> Option<()>;
 
     fn get_data(&self) -> Vec<u8>;
+
+    fn close(&mut self);
 
     fn is_window_stream(&self) -> bool;
     fn is_memory_stream(&self) -> bool;
