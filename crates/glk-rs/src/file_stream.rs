@@ -2,7 +2,7 @@ use mktemp::Temp;
 use std::{
     collections::HashMap,
     fs::{File, OpenOptions},
-    io::{BufRead, BufReader, Seek, SeekFrom, Write},
+    io::{BufRead, BufReader, Read, Seek, SeekFrom, Write},
     path::PathBuf,
 };
 
@@ -39,7 +39,7 @@ impl FileRefManager {
         name: PathBuf,
         rock: GlkRock,
     ) -> Option<GlkFileRef> {
-        self.create_file(usage, Temp::new_file().unwrap().to_path_buf(), rock, false)
+        self.create_file(usage, name, rock, false)
     }
 
     fn create_file(
@@ -123,7 +123,6 @@ impl FileStream {
             .create(mode != GlkFileMode::Read)
             .truncate(mode == GlkFileMode::Write);
 
-        println!("options = {options:?}");
         let fp = options.open(fileref.name.clone()).ok()?;
 
         Some(Self {
@@ -168,8 +167,20 @@ impl StreamHandler for FileStream {
         todo!()
     }
 
-    fn get_buffer(&self, _maxlen: Option<usize>) -> Vec<u8> {
-        todo!()
+    fn get_buffer(&self, maxlen: Option<usize>) -> Vec<u8> {
+        let Some(mut fp) = self.fp.as_ref() else {
+            return Vec::new();
+        };
+
+        if let Some(maxlen) = maxlen {
+            let mut buf = vec![0u8; maxlen];
+            let _ = fp.read(&mut buf);
+            buf
+        } else {
+            let mut buf: Vec<u8> = Vec::new();
+            let _ = fp.read_to_end(&mut buf);
+            buf
+        }
     }
 
     fn get_line(&self, _maxlen: Option<usize>) -> Vec<u8> {

@@ -595,6 +595,14 @@ mod test {
         GlkSeekMode,
     };
 
+    fn get_tmpdir() -> String {
+        if let Ok(tmpdir) = std::env::var("TMPDIR") {
+            tmpdir.to_string()
+        } else {
+            "/tmp".to_string()
+        }
+    }
+
     #[test]
     fn can_get_glk_version() {
         let glk = Glk::<GlkTestWindow>::new();
@@ -1168,7 +1176,7 @@ mod test {
     fn can_seek_within_memory_stream() {
         let mut glk = Glk::<GlkTestWindow>::new();
         let mem_stream = glk.stream_open_memory(
-            vec![b'b', b'e', b's', b't', b'i', b'n', b'g'],
+            vec![b't', b'e', b's', b't', b'i', b'n', b'g'],
             GlkFileMode::Read,
             45,
         );
@@ -1188,6 +1196,18 @@ mod test {
         assert!(glk
             .stream_set_position(mem_stream, 2, GlkSeekMode::End)
             .is_none());
+
+        let close = glk.stream_close(mem_stream);
+        assert!(close.is_some());
+
+        if let Some((result, bytes)) = close {
+            assert_eq!(result.read_count, 3);
+            assert_eq!(result.write_count, 0);
+            assert!(bytes.is_some());
+            if let Some(bytes) = bytes {
+                assert_eq!(bytes, vec![b't', b'e', b's', b't', b'i', b'n', b'g']);
+            }
+        }
     }
 
     #[test]
@@ -1209,15 +1229,23 @@ mod test {
 
     #[test]
     fn can_write_to_a_non_temp_file() {
+        let tmpfile = format!("{}/io_file.txt", get_tmpdir());
         let mut glk = Glk::<GlkTestWindow>::new();
         let fileref = glk
-            .fileref_create_by_name(GlkFileUsage::Data, "io_file.txt", 23)
+            .fileref_create_by_name(GlkFileUsage::Data, tmpfile, 23)
             .unwrap();
         let stream = glk
             .stream_open_file(fileref, GlkFileMode::Write, 24)
             .unwrap();
         glk.put_string_stream(stream, "This is a test of a named file");
-        glk.stream_close(stream);
+        let response = glk.stream_close(stream);
+        assert!(response.is_some());
+
+        if let Some((result, bytes)) = response {
+            assert!(bytes.is_none());
+            assert_eq!(result.read_count, 0);
+            assert_eq!(result.write_count, 30);
+        }
 
         let stream = glk
             .stream_open_file(fileref, GlkFileMode::Read, 24)
@@ -1234,9 +1262,10 @@ mod test {
 
     #[test]
     fn can_append_to_a_file() {
+        let tmpfile = format!("{}/append_file.txt", get_tmpdir());
         let mut glk = Glk::<GlkTestWindow>::new();
         let fileref = glk
-            .fileref_create_by_name(GlkFileUsage::Data, "append_file.txt", 23)
+            .fileref_create_by_name(GlkFileUsage::Data, tmpfile, 23)
             .unwrap();
         let stream = glk
             .stream_open_file(fileref, GlkFileMode::Write, 24)
@@ -1254,7 +1283,7 @@ mod test {
             .stream_open_file(fileref, GlkFileMode::Read, 24)
             .unwrap();
         let result = glk
-            .get_line_stream(stream, None)
+            .get_buffer_stream(stream, None)
             .iter()
             .map(|x| *x as char)
             .collect::<String>();
@@ -1264,6 +1293,6 @@ mod test {
                 .to_string()
         );
 
-        //glk.fileref_delete_file(fileref);
+        glk.fileref_delete_file(fileref);
     }
 }
