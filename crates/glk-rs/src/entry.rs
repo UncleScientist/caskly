@@ -1350,5 +1350,38 @@ mod test {
             .map(|x| *x as char)
             .collect::<String>();
         assert_eq!(result, "Line 3\n");
+
+        glk.stream_close(stream);
+    }
+
+    #[test]
+    fn can_write_utf8_characters() {
+        let tmpfile = format!("{}/utf8_file.txt", get_tmpdir());
+        let mut glk = Glk::<GlkTestWindow>::new();
+
+        let fileref = glk
+            .fileref_create_by_name(GlkFileUsage::Data, tmpfile, 23)
+            .unwrap();
+        let stream = glk
+            .stream_open_file(fileref, GlkFileMode::Write, 24)
+            .unwrap();
+
+        let flower = '🌸';
+        glk.put_char_stream_uni(stream, flower);
+
+        let sset = 'ß';
+        glk.put_char_stream_uni(stream, sset);
+        glk.stream_close(stream);
+
+        /*
+         * TODO: learn how to incrementally read utf8 characters from a file!
+        let stream = glk
+            .stream_open_file(fileref, GlkFileMode::Read, 24)
+            .unwrap();
+        let ch = glk.get_char_stream_uni(stream).unwrap();
+        glk.stream_close(stream);
+
+        assert_eq!(ch, flower);
+        */
     }
 }

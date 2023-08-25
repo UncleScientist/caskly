@@ -172,12 +172,19 @@ impl StreamHandler for FileStream {
         todo!()
     }
 
-    fn put_char_uni(&mut self, _ch: char) {
-        todo!()
+    fn put_char_uni(&mut self, ch: char) {
+        let mut bytes = [0u8; 4];
+        let len = ch.encode_utf8(&mut bytes).len();
+
+        if let Some(fp) = self.fp.as_mut() {
+            let _ = fp.write(&bytes[0..len]);
+        }
     }
 
-    fn put_buffer_uni(&mut self, _buf: &[char]) {
-        todo!()
+    fn put_buffer_uni(&mut self, buf: &[char]) {
+        for ch in buf {
+            self.put_char_uni(*ch);
+        }
     }
 
     fn get_char(&mut self) -> Option<u8> {
