@@ -579,27 +579,27 @@ pub mod testwin {
             self.textdata.extend(buf.iter());
         }
 
-        fn get_char(&self) -> Option<u8> {
+        fn get_char(&mut self) -> Option<u8> {
             panic!("can't read windows stream");
         }
 
-        fn get_buffer(&self, _maxlen: Option<usize>) -> Vec<u8> {
+        fn get_buffer(&mut self, _maxlen: Option<usize>) -> Vec<u8> {
             panic!("can't read windows stream");
         }
 
-        fn get_line(&self, _maxlen: Option<usize>) -> Vec<u8> {
+        fn get_line(&mut self, _maxlen: Option<usize>) -> Vec<u8> {
             panic!("can't read windows stream");
         }
 
-        fn get_char_uni(&self) -> Option<char> {
+        fn get_char_uni(&mut self) -> Option<char> {
             panic!("can't read windows stream");
         }
 
-        fn get_buffer_uni(&self, _maxlen: Option<usize>) -> String {
+        fn get_buffer_uni(&mut self, _maxlen: Option<usize>) -> String {
             panic!("can't read windows stream");
         }
 
-        fn get_line_uni(&self, _maxlen: Option<usize>) -> String {
+        fn get_line_uni(&mut self, _maxlen: Option<usize>) -> String {
             panic!("can't read windows stream");
         }
 

@@ -20,7 +20,7 @@ impl MemStream {
         }
     }
 
-    fn get_bytes(&self, maxlen: Option<usize>, end_char: Option<u8>) -> Vec<u8> {
+    fn get_bytes(&mut self, maxlen: Option<usize>, end_char: Option<u8>) -> Vec<u8> {
         let remaining_bytes = self.buf.len() - *self.cursor.borrow();
         let count = if let Some(max) = maxlen {
             max.min(remaining_bytes)
@@ -41,7 +41,7 @@ impl MemStream {
         result
     }
 
-    fn get_uni(&self, maxlen: Option<usize>, end_char: Option<char>) -> String {
+    fn get_uni(&mut self, maxlen: Option<usize>, end_char: Option<char>) -> String {
         let remaining_bytes = self.buf.len() - *self.cursor.borrow();
         let count = if let Some(max) = maxlen {
             max.min(remaining_bytes / 4)
@@ -99,7 +99,7 @@ impl StreamHandler for MemStream {
         }
     }
 
-    fn get_char(&self) -> Option<u8> {
+    fn get_char(&mut self) -> Option<u8> {
         if *self.cursor.borrow() < self.buf.len() {
             *self.cursor.borrow_mut() += 1;
             Some(self.buf[*self.cursor.borrow() - 1])
@@ -108,15 +108,15 @@ impl StreamHandler for MemStream {
         }
     }
 
-    fn get_buffer(&self, maxlen: Option<usize>) -> Vec<u8> {
+    fn get_buffer(&mut self, maxlen: Option<usize>) -> Vec<u8> {
         self.get_bytes(maxlen, None)
     }
 
-    fn get_line(&self, maxlen: Option<usize>) -> Vec<u8> {
+    fn get_line(&mut self, maxlen: Option<usize>) -> Vec<u8> {
         self.get_bytes(maxlen, Some(b'\n'))
     }
 
-    fn get_char_uni(&self) -> Option<char> {
+    fn get_char_uni(&mut self) -> Option<char> {
         let mut result = 0u32;
         for _ in 0..4 {
             result = (result << 8) | (self.get_char()? as u32);
@@ -125,11 +125,11 @@ impl StreamHandler for MemStream {
         char::from_u32(result)
     }
 
-    fn get_buffer_uni(&self, maxlen: Option<usize>) -> String {
+    fn get_buffer_uni(&mut self, maxlen: Option<usize>) -> String {
         self.get_uni(maxlen, None)
     }
 
-    fn get_line_uni(&self, maxlen: Option<usize>) -> String {
+    fn get_line_uni(&mut self, maxlen: Option<usize>) -> String {
         self.get_uni(maxlen, Some('\n'))
     }
 

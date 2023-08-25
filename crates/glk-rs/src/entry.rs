@@ -282,47 +282,47 @@ impl<T: GlkWindow + Default> Glk<T> {
      */
 
     /// write a byte to the default stream
-    pub fn put_char(&self, ch: u8) {
+    pub fn put_char(&mut self, ch: u8) {
         if let Some(stream) = self.default_stream {
             self.put_char_stream(stream, ch);
         }
     }
 
     /// write a string to the default stream
-    pub fn put_string(&self, s: &str) {
+    pub fn put_string(&mut self, s: &str) {
         if let Some(stream) = self.default_stream {
             self.put_string_stream(stream, s);
         }
     }
 
     /// write a string to the default stream
-    pub fn put_string_uni(&self, s: &str) {
+    pub fn put_string_uni(&mut self, s: &str) {
         self.put_string(s);
     }
 
     /// write a byte buffer to the default stream
-    pub fn put_buffer(&self, buf: &[u8]) {
+    pub fn put_buffer(&mut self, buf: &[u8]) {
         if let Some(stream) = self.default_stream {
             self.put_buffer_stream(stream, buf);
         }
     }
 
     /// write a unicode character to the default stream
-    pub fn put_char_uni(&self, ch: char) {
+    pub fn put_char_uni(&mut self, ch: char) {
         if let Some(stream) = self.default_stream {
             self.put_char_stream_uni(stream, ch);
         }
     }
 
     /// write a unicode buffer to the default stream
-    pub fn put_buffer_uni(&self, buf: &[char]) {
+    pub fn put_buffer_uni(&mut self, buf: &[char]) {
         if let Some(stream) = self.default_stream {
             self.put_buffer_stream_uni(stream, buf);
         }
     }
 
     /// write a byte to a stream
-    pub fn put_char_stream(&self, streamid: GlkStreamID, ch: u8) {
+    pub fn put_char_stream(&mut self, streamid: GlkStreamID, ch: u8) {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.put_char(ch);
             /*
@@ -334,7 +334,7 @@ impl<T: GlkWindow + Default> Glk<T> {
     }
 
     /// write a unicode string to a stream
-    pub fn put_string_stream(&self, streamid: GlkStreamID, s: &str) {
+    pub fn put_string_stream(&mut self, streamid: GlkStreamID, s: &str) {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.put_string(s);
         }
@@ -342,26 +342,26 @@ impl<T: GlkWindow + Default> Glk<T> {
 
     /// write a unicode string to a stream - same as put_string_stream() in rust because
     /// all strings are unicode in rust
-    pub fn put_string_stream_uni(&self, streamid: GlkStreamID, s: &str) {
+    pub fn put_string_stream_uni(&mut self, streamid: GlkStreamID, s: &str) {
         self.put_string_stream(streamid, s);
     }
 
     /// write a buffer of bytes to a stream
-    pub fn put_buffer_stream(&self, streamid: GlkStreamID, buf: &[u8]) {
+    pub fn put_buffer_stream(&mut self, streamid: GlkStreamID, buf: &[u8]) {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.put_buffer(buf);
         }
     }
 
     /// write a unicode character to a stream
-    pub fn put_char_stream_uni(&self, streamid: GlkStreamID, ch: char) {
+    pub fn put_char_stream_uni(&mut self, streamid: GlkStreamID, ch: char) {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.put_char_uni(ch);
         }
     }
 
     /// write a buffer of unicode characters to a stream
-    pub fn put_buffer_stream_uni(&self, streamid: GlkStreamID, buf: &[char]) {
+    pub fn put_buffer_stream_uni(&mut self, streamid: GlkStreamID, buf: &[char]) {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.put_buffer_uni(buf);
         }
@@ -373,7 +373,7 @@ impl<T: GlkWindow + Default> Glk<T> {
 
     /// read a byte from a stream. If the stream is output-only, or if there are no
     /// more characters to read, return None.
-    pub fn get_char_stream(&self, streamid: GlkStreamID) -> Option<u8> {
+    pub fn get_char_stream(&mut self, streamid: GlkStreamID) -> Option<u8> {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.get_char()
         } else {
@@ -382,7 +382,7 @@ impl<T: GlkWindow + Default> Glk<T> {
     }
 
     /// read a stream of bytes
-    pub fn get_buffer_stream(&self, streamid: GlkStreamID, len: Option<usize>) -> Vec<u8> {
+    pub fn get_buffer_stream(&mut self, streamid: GlkStreamID, len: Option<usize>) -> Vec<u8> {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.get_buffer(len)
         } else {
@@ -391,7 +391,7 @@ impl<T: GlkWindow + Default> Glk<T> {
     }
 
     /// read a stream of bytes until a newline, or until end-of-stream
-    pub fn get_line_stream(&self, streamid: GlkStreamID, len: Option<usize>) -> Vec<u8> {
+    pub fn get_line_stream(&mut self, streamid: GlkStreamID, len: Option<usize>) -> Vec<u8> {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.get_line(len)
         } else {
@@ -401,7 +401,7 @@ impl<T: GlkWindow + Default> Glk<T> {
 
     /// get a unicode character from a stream. If the stream is output-only, or if there
     /// are no more characters to read, return None
-    pub fn get_char_stream_uni(&self, streamid: GlkStreamID) -> Option<char> {
+    pub fn get_char_stream_uni(&mut self, streamid: GlkStreamID) -> Option<char> {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.get_char_uni()
         } else {
@@ -410,7 +410,7 @@ impl<T: GlkWindow + Default> Glk<T> {
     }
 
     /// read a stream of unicode characters
-    pub fn get_buffer_stream_uni(&self, streamid: GlkStreamID, len: Option<usize>) -> String {
+    pub fn get_buffer_stream_uni(&mut self, streamid: GlkStreamID, len: Option<usize>) -> String {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.get_buffer_uni(len)
         } else {
@@ -419,7 +419,7 @@ impl<T: GlkWindow + Default> Glk<T> {
     }
 
     /// read a stream of unicode characters
-    pub fn get_line_stream_uni(&self, streamid: GlkStreamID, len: Option<usize>) -> String {
+    pub fn get_line_stream_uni(&mut self, streamid: GlkStreamID, len: Option<usize>) -> String {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.get_line_uni(len)
         } else {
@@ -452,14 +452,14 @@ impl<T: GlkWindow + Default> Glk<T> {
      */
 
     /// Get the position within a stream. Return value is offset from the beginning of the stream
-    pub fn stream_get_position(&self, streamid: GlkStreamID) -> Option<u32> {
+    pub fn stream_get_position(&mut self, streamid: GlkStreamID) -> Option<u32> {
         let stream = self.stream_mgr.get(streamid)?;
         Some(stream.get_position())
     }
 
     /// Sets the position of the next read/write location in the stream
     pub fn stream_set_position(
-        &self,
+        &mut self,
         streamid: GlkStreamID,
         pos: i32,
         mode: GlkSeekMode,
@@ -1203,10 +1203,7 @@ mod test {
         if let Some((result, bytes)) = close {
             assert_eq!(result.read_count, 3);
             assert_eq!(result.write_count, 0);
-            assert!(bytes.is_some());
-            if let Some(bytes) = bytes {
-                assert_eq!(bytes, vec![b't', b'e', b's', b't', b'i', b'n', b'g']);
-            }
+            assert_eq!(bytes, Some(vec![b't', b'e', b's', b't', b'i', b'n', b'g']));
         }
     }
 
@@ -1293,6 +1290,65 @@ mod test {
                 .to_string()
         );
 
+        glk.stream_set_position(stream, 0, GlkSeekMode::Start);
+        let result = glk
+            .get_buffer_stream(stream, Some(5))
+            .iter()
+            .map(|x| *x as char)
+            .collect::<String>();
+        assert_eq!(result, "This ");
+
         glk.fileref_delete_file(fileref);
+    }
+
+    #[test]
+    fn can_read_multiple_lines_from_a_file() {
+        let tmpfile = format!("{}/multi_line_file.txt", get_tmpdir());
+        let mut glk = Glk::<GlkTestWindow>::new();
+        let fileref = glk
+            .fileref_create_by_name(GlkFileUsage::Data, tmpfile, 23)
+            .unwrap();
+        let stream = glk
+            .stream_open_file(fileref, GlkFileMode::Write, 24)
+            .unwrap();
+
+        glk.put_string_stream(stream, "Line 1\n");
+        glk.put_string_stream(stream, "Line 2\n");
+        glk.put_string_stream(stream, "Line 3\n");
+        glk.stream_close(stream);
+
+        let stream = glk
+            .stream_open_file(fileref, GlkFileMode::Read, 24)
+            .unwrap();
+
+        let result = glk
+            .get_line_stream(stream, None)
+            .iter()
+            .map(|x| *x as char)
+            .collect::<String>();
+        assert_eq!(result, "Line 1\n");
+
+        // should be able to read a partial line
+        let result = glk
+            .get_line_stream(stream, Some(3))
+            .iter()
+            .map(|x| *x as char)
+            .collect::<String>();
+        assert_eq!(result, "Lin");
+
+        // should be able to stop at a newline even if requesting more characters
+        let result = glk
+            .get_line_stream(stream, Some(10))
+            .iter()
+            .map(|x| *x as char)
+            .collect::<String>();
+        assert_eq!(result, "e 2\n");
+
+        let result = glk
+            .get_line_stream(stream, None)
+            .iter()
+            .map(|x| *x as char)
+            .collect::<String>();
+        assert_eq!(result, "Line 3\n");
     }
 }

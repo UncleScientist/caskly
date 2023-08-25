@@ -95,6 +95,7 @@ pub(crate) struct FileStream {
     _rock: GlkRock,
     fp: Option<File>,
     result: GlkStreamResult,
+    input_buf: Option<BufReader<File>>,
 }
 
 impl FileStream {
@@ -111,6 +112,7 @@ impl FileStream {
             _rock: rock,
             fp: Some(fp),
             result: GlkStreamResult::default(),
+            input_buf: None,
         })
     }
 
@@ -130,7 +132,22 @@ impl FileStream {
             _rock: rock,
             fp: Some(fp),
             result: GlkStreamResult::default(),
+            input_buf: None,
         })
+    }
+
+    fn get_bufreader(&mut self) -> &mut BufReader<File> {
+        if self.input_buf.is_none() {
+            self.input_buf = Some(BufReader::new(
+                self.fp.as_ref().unwrap().try_clone().unwrap(),
+            ));
+        }
+
+        if let Some(br) = self.input_buf.as_mut() {
+            br
+        } else {
+            panic!("!");
+        }
     }
 }
 
@@ -163,11 +180,17 @@ impl StreamHandler for FileStream {
         todo!()
     }
 
-    fn get_char(&self) -> Option<u8> {
-        todo!()
+    fn get_char(&mut self) -> Option<u8> {
+        let br = self.get_bufreader();
+        let mut buf = [0u8];
+        if br.read(&mut buf).is_ok() {
+            Some(buf[0])
+        } else {
+            None
+        }
     }
 
-    fn get_buffer(&self, maxlen: Option<usize>) -> Vec<u8> {
+    fn get_buffer(&mut self, maxlen: Option<usize>) -> Vec<u8> {
         let Some(mut fp) = self.fp.as_ref() else {
             return Vec::new();
         };
@@ -183,35 +206,42 @@ impl StreamHandler for FileStream {
         }
     }
 
-    fn get_line(&self, _maxlen: Option<usize>) -> Vec<u8> {
+    fn get_line(&mut self, maxlen: Option<usize>) -> Vec<u8> {
         let mut result = String::from("");
-        let fp = if let Some(fp) = self.fp.as_ref() {
-            fp.try_clone()
-        } else {
-            return Vec::new();
-        };
-        let file_clone = if let Ok(cloned) = fp {
-            cloned
-        } else {
-            return Vec::new();
-        };
 
-        let mut br = BufReader::new(file_clone);
+        let br = self.get_bufreader();
 
-        let _ = br.read_line(&mut result);
+        let _ = if let Some(maxlen) = maxlen {
+            let mut buf = vec![0u8; maxlen];
+
+            if br.read_exact(&mut buf).is_err() {
+                return Vec::new();
+            };
+
+            if let Some(pos) = buf.iter().position(|x| *x == b'\n') {
+                let seek_to = (maxlen - pos) as i64 - 1;
+                let _ = br.seek_relative(-seek_to);
+                return buf.into_iter().take(pos + 1).collect::<Vec<u8>>();
+            }
+
+            result = buf.into_iter().map(|x| x as char).collect::<String>();
+            Ok(result.len())
+        } else {
+            br.read_line(&mut result)
+        };
 
         result.chars().map(|x| x as u8).collect()
     }
 
-    fn get_char_uni(&self) -> Option<char> {
+    fn get_char_uni(&mut self) -> Option<char> {
         todo!()
     }
 
-    fn get_buffer_uni(&self, _maxlen: Option<usize>) -> String {
+    fn get_buffer_uni(&mut self, _maxlen: Option<usize>) -> String {
         todo!()
     }
 
-    fn get_line_uni(&self, _maxlen: Option<usize>) -> String {
+    fn get_line_uni(&mut self, _maxlen: Option<usize>) -> String {
         todo!()
     }
 

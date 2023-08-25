@@ -32,8 +32,8 @@ impl StreamManager {
         self.val - 1
     }
 
-    pub(crate) fn get(&self, id: GlkStreamID) -> Option<&GlkStream> {
-        self.stream.get(&id)
+    pub(crate) fn get(&mut self, id: GlkStreamID) -> Option<&mut GlkStream> {
+        self.stream.get_mut(&id)
     }
 
     pub(crate) fn close(&mut self, id: GlkStreamID) -> Option<GlkStreamResult> {
@@ -112,9 +112,9 @@ impl GlkStream {
         self.sh.borrow_mut().increment_output_count(4 * buf.len());
     }
 
-    pub fn get_char(&self) -> Option<u8> {
+    pub fn get_char(&mut self) -> Option<u8> {
         self.check_read();
-        let ch = self.sh.borrow().get_char();
+        let ch = self.sh.borrow_mut().get_char();
         if ch.is_some() {
             self.sh.borrow_mut().increment_input_count(1);
         }
@@ -123,21 +123,21 @@ impl GlkStream {
 
     pub fn get_buffer(&self, maxlen: Option<usize>) -> Vec<u8> {
         self.check_read();
-        let result = self.sh.borrow().get_buffer(maxlen);
+        let result = self.sh.borrow_mut().get_buffer(maxlen);
         self.sh.borrow_mut().increment_input_count(result.len());
         result
     }
 
     pub fn get_line(&self, maxlen: Option<usize>) -> Vec<u8> {
         self.check_read();
-        let result = self.sh.borrow().get_line(maxlen);
+        let result = self.sh.borrow_mut().get_line(maxlen);
         self.sh.borrow_mut().increment_input_count(result.len());
         result
     }
 
     pub fn get_char_uni(&self) -> Option<char> {
         self.check_read();
-        let ch = self.sh.borrow().get_char_uni();
+        let ch = self.sh.borrow_mut().get_char_uni();
         if ch.is_some() {
             self.sh.borrow_mut().increment_input_count(4);
         }
@@ -146,14 +146,14 @@ impl GlkStream {
 
     pub fn get_buffer_uni(&self, maxlen: Option<usize>) -> String {
         self.check_read();
-        let result = self.sh.borrow().get_buffer_uni(maxlen);
+        let result = self.sh.borrow_mut().get_buffer_uni(maxlen);
         self.sh.borrow_mut().increment_input_count(result.len() * 4);
         result
     }
 
     pub fn get_line_uni(&self, maxlen: Option<usize>) -> String {
         self.check_read();
-        let result = self.sh.borrow().get_line_uni(maxlen);
+        let result = self.sh.borrow_mut().get_line_uni(maxlen);
         self.sh.borrow_mut().increment_input_count(result.len() * 4);
         result
     }
@@ -191,12 +191,12 @@ pub trait StreamHandler: Debug {
     // note: put_string_uni() is not here because put_string() handles it
     fn put_buffer_uni(&mut self, buf: &[char]);
 
-    fn get_char(&self) -> Option<u8>;
-    fn get_buffer(&self, maxlen: Option<usize>) -> Vec<u8>;
-    fn get_line(&self, maxlen: Option<usize>) -> Vec<u8>;
-    fn get_char_uni(&self) -> Option<char>;
-    fn get_buffer_uni(&self, maxlen: Option<usize>) -> String;
-    fn get_line_uni(&self, maxlen: Option<usize>) -> String;
+    fn get_char(&mut self) -> Option<u8>;
+    fn get_buffer(&mut self, maxlen: Option<usize>) -> Vec<u8>;
+    fn get_line(&mut self, maxlen: Option<usize>) -> Vec<u8>;
+    fn get_char_uni(&mut self) -> Option<char>;
+    fn get_buffer_uni(&mut self, maxlen: Option<usize>) -> String;
+    fn get_line_uni(&mut self, maxlen: Option<usize>) -> String;
 
     fn get_position(&self) -> u32;
     fn set_position(&mut self, pos: i32, seekmode: GlkSeekMode) -> Option<()>;
