@@ -1,5 +1,5 @@
 use rglk::stream::{GlkStreamHandler, GlkStreamResult};
-use rglk::windows::{GlkWindow, GlkWindowType};
+use rglk::windows::{GlkWindow, GlkWindowSize, GlkWindowType};
 use rglk::Glk;
 
 #[derive(Debug, Default)]
@@ -8,7 +8,7 @@ struct SimpleWindow {
 }
 
 impl GlkWindow for SimpleWindow {
-    fn get_size(&self) -> rglk::windows::GlkWindowSize {
+    fn get_size(&self) -> GlkWindowSize {
         todo!()
     }
 
