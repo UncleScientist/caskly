@@ -7,7 +7,7 @@ use std::{
 };
 
 use crate::{
-    stream::{GlkStreamResult, StreamHandler},
+    stream::{GlkStreamHandler, GlkStreamResult},
     GlkFileMode, GlkFileUsage, GlkRock,
 };
 
@@ -151,7 +151,7 @@ impl FileStream {
     }
 }
 
-impl StreamHandler for FileStream {
+impl GlkStreamHandler for FileStream {
     fn close(&mut self) {
         let _ = self.fp.take();
     }

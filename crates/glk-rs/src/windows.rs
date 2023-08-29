@@ -1,4 +1,4 @@
-use crate::stream::{GlkStreamID, StreamHandler};
+use crate::stream::{GlkStreamHandler, GlkStreamID};
 use crate::GlkRock;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -46,7 +46,7 @@ pub enum GlkWindowType {
 
 /// Interface for a window type; implement this to create a back-end for your
 /// window.
-pub trait GlkWindow: StreamHandler {
+pub trait GlkWindow: GlkStreamHandler {
     /// returns the size of the window in its measurement system
     fn get_size(&self) -> GlkWindowSize;
 
@@ -315,34 +315,35 @@ impl<T: GlkWindow + Default> WindowRef<T> {
     // C   D
     pub(crate) fn close_window(&self) {
         let mut parent = self.get_parent().unwrap();
-        let grandparent = parent.get_parent().unwrap();
 
-        let sibling = self.get_sibling().unwrap();
+        if let Some(grandparent) = parent.get_parent() {
+            let sibling = self.get_sibling().unwrap();
 
-        // grandparent's child (parent) is replaced with sibling
-        // then close all windows from parent on down
+            // grandparent's child (parent) is replaced with sibling
+            // then close all windows from parent on down
 
-        let is_child1 = if let Some(child1) = grandparent.winref.borrow().child1.as_ref() {
-            Rc::ptr_eq(&child1.winref, &parent.winref)
-        } else {
-            false
-        };
-
-        #[cfg(test)]
-        {
-            let is_child2 = if let Some(child2) = grandparent.winref.borrow().child2.as_ref() {
-                Rc::ptr_eq(&child2.winref, &parent.winref)
+            let is_child1 = if let Some(child1) = grandparent.winref.borrow().child1.as_ref() {
+                Rc::ptr_eq(&child1.winref, &parent.winref)
             } else {
                 false
             };
 
-            assert!(is_child1 != is_child2);
-        }
+            #[cfg(test)]
+            {
+                let is_child2 = if let Some(child2) = grandparent.winref.borrow().child2.as_ref() {
+                    Rc::ptr_eq(&child2.winref, &parent.winref)
+                } else {
+                    false
+                };
 
-        if is_child1 {
-            grandparent.winref.borrow_mut().child1 = Some(sibling);
-        } else {
-            grandparent.winref.borrow_mut().child2 = Some(sibling);
+                assert!(is_child1 != is_child2);
+            }
+
+            if is_child1 {
+                grandparent.winref.borrow_mut().child1 = Some(sibling);
+            } else {
+                grandparent.winref.borrow_mut().child2 = Some(sibling);
+            }
         }
 
         parent.clean_tree();
@@ -556,7 +557,7 @@ pub mod testwin {
         }
     }
 
-    impl StreamHandler for GlkTestWindow {
+    impl GlkStreamHandler for GlkTestWindow {
         fn close(&mut self) {}
 
         fn put_char(&mut self, ch: u8) {

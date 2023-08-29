@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 
 use crate::{
-    stream::{GlkStreamResult, StreamHandler},
+    stream::{GlkStreamHandler, GlkStreamResult},
     GlkSeekMode,
 };
 
@@ -63,7 +63,7 @@ impl MemStream {
     }
 }
 
-impl StreamHandler for MemStream {
+impl GlkStreamHandler for MemStream {
     fn close(&mut self) {}
 
     fn put_char(&mut self, ch: u8) {

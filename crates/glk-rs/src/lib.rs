@@ -95,5 +95,7 @@ pub mod windows;
 /// File I/O system
 pub mod file_stream;
 
+/// Stream System
+pub mod stream;
+
 pub(crate) mod mem_stream;
-pub(crate) mod stream;

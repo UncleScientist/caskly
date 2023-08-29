@@ -3,6 +3,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{GlkFileMode, GlkRock, GlkSeekMode};
 
+/// An opaque stream ID
 pub type GlkStreamID = u32;
 
 #[derive(Default, Debug)]
@@ -23,7 +24,7 @@ pub struct GlkStreamResult {
 impl StreamManager {
     pub(crate) fn new_stream(
         &mut self,
-        stream: Rc<RefCell<dyn StreamHandler>>,
+        stream: Rc<RefCell<dyn GlkStreamHandler>>,
         mode: GlkFileMode,
     ) -> GlkStreamID {
         self.stream
@@ -44,15 +45,15 @@ impl StreamManager {
 }
 
 #[derive(Debug)]
-pub struct GlkStream {
-    sh: Rc<RefCell<dyn StreamHandler>>,
+pub(crate) struct GlkStream {
+    sh: Rc<RefCell<dyn GlkStreamHandler>>,
     mode: GlkFileMode,
     _rock: GlkRock,
 }
 
 impl GlkStream {
     pub(crate) fn new(
-        stream: &Rc<RefCell<dyn StreamHandler>>,
+        stream: &Rc<RefCell<dyn GlkStreamHandler>>,
         mode: GlkFileMode,
         _rock: GlkRock,
     ) -> Self {
@@ -183,31 +184,66 @@ impl GlkStream {
     }
 }
 
-pub trait StreamHandler: Debug {
+/// Define this for your window type
+pub trait GlkStreamHandler: Debug {
+    /// Write a byte to a stream
     fn put_char(&mut self, ch: u8);
+
+    /// Write a unicode string to a stream
     fn put_string(&mut self, s: &str);
+
+    /// write an array of bytes to a stream
     fn put_buffer(&mut self, buf: &[u8]);
+
+    /// write a unicode character to a stream
     fn put_char_uni(&mut self, ch: char);
     // note: put_string_uni() is not here because put_string() handles it
+
+    /// write an array of unicode characters to a stream
     fn put_buffer_uni(&mut self, buf: &[char]);
 
+    /// read a byte from a stream
     fn get_char(&mut self) -> Option<u8>;
+
+    /// read an array of bytes from a stream
     fn get_buffer(&mut self, maxlen: Option<usize>) -> Vec<u8>;
+
+    /// read a line of bytes from a stream (up to a newline character)
     fn get_line(&mut self, maxlen: Option<usize>) -> Vec<u8>;
+
+    /// read a unicode character from a stream
     fn get_char_uni(&mut self) -> Option<char>;
+
+    /// read a unicode string from a stream
     fn get_buffer_uni(&mut self, maxlen: Option<usize>) -> String;
+
+    /// read a unicode string up to a newline from a stream
     fn get_line_uni(&mut self, maxlen: Option<usize>) -> String;
 
+    /// get the read/write position of the underlying file
     fn get_position(&self) -> u32;
+
+    /// set the read/write position for the underlying file
     fn set_position(&mut self, pos: i32, seekmode: GlkSeekMode) -> Option<()>;
 
+    /// for memory streams only: retrieve the data buffer
     fn get_data(&self) -> Vec<u8>;
 
+    /// close/finalize a stream
     fn close(&mut self);
 
+    /// return true for window streams
     fn is_window_stream(&self) -> bool;
+
+    /// return true for memory streams
     fn is_memory_stream(&self) -> bool;
+
+    /// refactor this out
     fn increment_output_count(&mut self, bytes: usize);
+
+    /// refactor this out
     fn increment_input_count(&mut self, bytes: usize);
+
+    /// extract the read/write counts for this stream
     fn get_results(&self) -> GlkStreamResult;
 }
