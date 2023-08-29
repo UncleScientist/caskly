@@ -49,6 +49,8 @@ pub(crate) struct GlkStream {
     sh: Rc<RefCell<dyn GlkStreamHandler>>,
     mode: GlkFileMode,
     _rock: GlkRock,
+    read_count: usize,
+    write_count: usize,
 }
 
 impl GlkStream {
@@ -61,6 +63,8 @@ impl GlkStream {
             sh: Rc::clone(stream),
             mode,
             _rock,
+            read_count: 0,
+            write_count: 0,
         }
     }
 
@@ -83,79 +87,79 @@ impl GlkStream {
         }
     }
 
-    pub fn put_char(&self, ch: u8) {
+    pub fn put_char(&mut self, ch: u8) {
         self.check_write();
         self.sh.borrow_mut().put_char(ch);
-        self.sh.borrow_mut().increment_output_count(1);
+        self.write_count += 1;
     }
 
-    pub fn put_string(&self, s: &str) {
+    pub fn put_string(&mut self, s: &str) {
         self.check_write();
         self.sh.borrow_mut().put_string(s);
-        self.sh.borrow_mut().increment_output_count(s.len());
+        self.write_count += s.len();
     }
 
-    pub fn put_buffer(&self, buf: &[u8]) {
+    pub fn put_buffer(&mut self, buf: &[u8]) {
         self.check_write();
         self.sh.borrow_mut().put_buffer(buf);
-        self.sh.borrow_mut().increment_output_count(buf.len());
+        self.write_count += buf.len();
     }
 
-    pub fn put_char_uni(&self, ch: char) {
+    pub fn put_char_uni(&mut self, ch: char) {
         self.check_write();
         self.sh.borrow_mut().put_char_uni(ch);
-        self.sh.borrow_mut().increment_output_count(4);
+        self.write_count += 4;
     }
 
-    pub fn put_buffer_uni(&self, buf: &[char]) {
+    pub fn put_buffer_uni(&mut self, buf: &[char]) {
         self.check_write();
         self.sh.borrow_mut().put_buffer_uni(buf);
-        self.sh.borrow_mut().increment_output_count(4 * buf.len());
+        self.write_count += 4 * buf.len();
     }
 
     pub fn get_char(&mut self) -> Option<u8> {
         self.check_read();
         let ch = self.sh.borrow_mut().get_char();
         if ch.is_some() {
-            self.sh.borrow_mut().increment_input_count(1);
+            self.read_count += 1;
         }
         ch
     }
 
-    pub fn get_buffer(&self, maxlen: Option<usize>) -> Vec<u8> {
+    pub fn get_buffer(&mut self, maxlen: Option<usize>) -> Vec<u8> {
         self.check_read();
         let result = self.sh.borrow_mut().get_buffer(maxlen);
-        self.sh.borrow_mut().increment_input_count(result.len());
+        self.read_count += result.len();
         result
     }
 
-    pub fn get_line(&self, maxlen: Option<usize>) -> Vec<u8> {
+    pub fn get_line(&mut self, maxlen: Option<usize>) -> Vec<u8> {
         self.check_read();
         let result = self.sh.borrow_mut().get_line(maxlen);
-        self.sh.borrow_mut().increment_input_count(result.len());
+        self.read_count += result.len();
         result
     }
 
-    pub fn get_char_uni(&self) -> Option<char> {
+    pub fn get_char_uni(&mut self) -> Option<char> {
         self.check_read();
         let ch = self.sh.borrow_mut().get_char_uni();
         if ch.is_some() {
-            self.sh.borrow_mut().increment_input_count(4);
+            self.read_count += 4;
         }
         ch
     }
 
-    pub fn get_buffer_uni(&self, maxlen: Option<usize>) -> String {
+    pub fn get_buffer_uni(&mut self, maxlen: Option<usize>) -> String {
         self.check_read();
         let result = self.sh.borrow_mut().get_buffer_uni(maxlen);
-        self.sh.borrow_mut().increment_input_count(result.len() * 4);
+        self.read_count += result.len() * 4;
         result
     }
 
-    pub fn get_line_uni(&self, maxlen: Option<usize>) -> String {
+    pub fn get_line_uni(&mut self, maxlen: Option<usize>) -> String {
         self.check_read();
         let result = self.sh.borrow_mut().get_line_uni(maxlen);
-        self.sh.borrow_mut().increment_input_count(result.len() * 4);
+        self.read_count += result.len() * 4;
         result
     }
 
@@ -180,7 +184,10 @@ impl GlkStream {
     }
 
     pub fn get_results(&self) -> GlkStreamResult {
-        self.sh.borrow().get_results()
+        GlkStreamResult {
+            read_count: self.read_count as u32,
+            write_count: self.write_count as u32,
+        }
     }
 }
 
@@ -237,13 +244,4 @@ pub trait GlkStreamHandler: Debug {
 
     /// return true for memory streams
     fn is_memory_stream(&self) -> bool;
-
-    /// refactor this out
-    fn increment_output_count(&mut self, bytes: usize);
-
-    /// refactor this out
-    fn increment_input_count(&mut self, bytes: usize);
-
-    /// extract the read/write counts for this stream
-    fn get_results(&self) -> GlkStreamResult;
 }

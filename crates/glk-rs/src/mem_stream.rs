@@ -1,15 +1,11 @@
 use std::cell::RefCell;
 
-use crate::{
-    stream::{GlkStreamHandler, GlkStreamResult},
-    GlkSeekMode,
-};
+use crate::{stream::GlkStreamHandler, GlkSeekMode};
 
 #[derive(Debug, Default)]
 pub(crate) struct MemStream {
     buf: Vec<u8>,
     cursor: RefCell<usize>,
-    result: GlkStreamResult,
 }
 
 impl MemStream {
@@ -162,17 +158,5 @@ impl GlkStreamHandler for MemStream {
 
     fn is_memory_stream(&self) -> bool {
         true
-    }
-
-    fn increment_output_count(&mut self, count: usize) {
-        self.result.write_count += count as u32;
-    }
-
-    fn increment_input_count(&mut self, count: usize) {
-        self.result.read_count += count as u32;
-    }
-
-    fn get_results(&self) -> GlkStreamResult {
-        self.result.clone()
     }
 }

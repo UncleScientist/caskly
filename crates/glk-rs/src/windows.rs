@@ -524,8 +524,6 @@ impl<T: GlkWindow + Default> Window<T> {}
 
 #[cfg(test)]
 pub mod testwin {
-    use crate::stream::GlkStreamResult;
-
     use super::*;
 
     #[derive(Debug)]
@@ -624,21 +622,6 @@ pub mod testwin {
 
         fn get_data(&self) -> Vec<u8> {
             panic!("should not be able to extract data from a window");
-        }
-
-        fn increment_output_count(&mut self, count: usize) {
-            self.output_bytes += count;
-        }
-
-        fn increment_input_count(&mut self, count: usize) {
-            self.input_bytes += count;
-        }
-
-        fn get_results(&self) -> GlkStreamResult {
-            GlkStreamResult {
-                read_count: self.input_bytes as u32,
-                write_count: self.output_bytes as u32,
-            }
         }
     }
 

@@ -1,11 +1,9 @@
-use rglk::stream::{GlkStreamHandler, GlkStreamResult};
+use rglk::stream::GlkStreamHandler;
 use rglk::windows::{GlkWindow, GlkWindowSize, GlkWindowType};
 use rglk::Glk;
 
 #[derive(Debug, Default)]
-struct SimpleWindow {
-    write_count: usize,
-}
+struct SimpleWindow;
 
 impl GlkWindow for SimpleWindow {
     fn get_size(&self) -> GlkWindowSize {
@@ -88,21 +86,6 @@ impl GlkStreamHandler for SimpleWindow {
 
     fn is_memory_stream(&self) -> bool {
         todo!()
-    }
-
-    fn increment_output_count(&mut self, bytes: usize) {
-        self.write_count += bytes;
-    }
-
-    fn increment_input_count(&mut self, _bytes: usize) {
-        todo!()
-    }
-
-    fn get_results(&self) -> GlkStreamResult {
-        GlkStreamResult {
-            read_count: 0,
-            write_count: self.write_count as u32,
-        }
     }
 }
 

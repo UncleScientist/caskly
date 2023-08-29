@@ -6,10 +6,7 @@ use std::{
     path::PathBuf,
 };
 
-use crate::{
-    stream::{GlkStreamHandler, GlkStreamResult},
-    GlkFileMode, GlkFileUsage, GlkRock,
-};
+use crate::{stream::GlkStreamHandler, GlkFileMode, GlkFileUsage, GlkRock};
 
 /// A reference to a file
 pub type GlkFileRef = u32;
@@ -94,7 +91,6 @@ pub(crate) struct FileStream {
     _fileref: FileRef,
     _rock: GlkRock,
     fp: Option<File>,
-    result: GlkStreamResult,
     input_buf: Option<BufReader<File>>,
 }
 
@@ -111,7 +107,6 @@ impl FileStream {
             _fileref: fileref.clone(),
             _rock: rock,
             fp: Some(fp),
-            result: GlkStreamResult::default(),
             input_buf: None,
         })
     }
@@ -131,7 +126,6 @@ impl FileStream {
             _fileref: fileref.clone(),
             _rock: rock,
             fp: Some(fp),
-            result: GlkStreamResult::default(),
             input_buf: None,
         })
     }
@@ -279,17 +273,5 @@ impl GlkStreamHandler for FileStream {
 
     fn is_memory_stream(&self) -> bool {
         false
-    }
-
-    fn increment_output_count(&mut self, count: usize) {
-        self.result.write_count += count as u32;
-    }
-
-    fn increment_input_count(&mut self, count: usize) {
-        self.result.read_count += count as u32;
-    }
-
-    fn get_results(&self) -> crate::stream::GlkStreamResult {
-        self.result.clone()
     }
 }
