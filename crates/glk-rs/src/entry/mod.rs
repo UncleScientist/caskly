@@ -15,7 +15,7 @@ use crate::{gestalt::*, GlkFileUsage};
 
 /// The GLK object. TODO: Insert basic usage here
 /// This is the API for GLK interpreted as a Rust API.
-#[derive(Default, Debug)]
+#[derive(Default)]
 pub struct Glk<T: GlkWindow + Default + 'static> {
     win_mgr: WindowManager<T>,
     stream_mgr: StreamManager,

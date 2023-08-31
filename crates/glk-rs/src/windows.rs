@@ -8,7 +8,7 @@ use std::rc::{Rc, Weak};
 pub type GlkWindowID = u32;
 
 /// A glk window
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct Window<T: GlkWindow + Default> {
     pub(crate) wintype: WindowType,
     method: Option<WindowSplitMethod>,
@@ -46,7 +46,7 @@ pub enum GlkWindowType {
 
 /// Interface for a window type; implement this to create a back-end for your
 /// window.
-pub trait GlkWindow: GlkStreamHandler {
+pub trait GlkWindow {
     /// returns the size of the window in its measurement system
     fn get_size(&self) -> GlkWindowSize;
 
@@ -55,13 +55,104 @@ pub trait GlkWindow: GlkStreamHandler {
 
     /// clear a window - the way windows get cleared depends on their GlkWindowType
     fn clear(&mut self);
+
+    /// write a byte to a window
+    fn write_char(&mut self, ch: u8) -> usize;
+
+    /// write a string to a window
+    fn write_string(&mut self, s: &str) -> usize;
+
+    /// write an array of bytes to a window
+    fn write_buffer(&mut self, buf: &[u8]) -> usize;
+
+    /// write a unicode character to a window
+    fn write_char_uni(&mut self, ch: char) -> usize;
+
+    /// write an array of unicode characters to a window
+    fn write_buffer_uni(&mut self, buf: &[char]) -> usize;
 }
 
 /// A GLK window reference
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct WindowRef<T: GlkWindow + Default> {
     /// the reference to the window
     pub(crate) winref: Rc<RefCell<Window<T>>>,
+}
+
+impl<T: GlkWindow + Default> GlkStreamHandler for WindowRef<T> {
+    fn put_char(&mut self, ch: u8) {
+        self.winref.borrow().window.borrow_mut().write_char(ch);
+    }
+
+    fn put_string(&mut self, s: &str) {
+        self.winref.borrow().window.borrow_mut().write_string(s);
+    }
+
+    fn put_buffer(&mut self, buf: &[u8]) {
+        self.winref.borrow().window.borrow_mut().write_buffer(buf);
+    }
+
+    fn put_char_uni(&mut self, ch: char) {
+        self.winref.borrow().window.borrow_mut().write_char_uni(ch);
+    }
+
+    fn put_buffer_uni(&mut self, buf: &[char]) {
+        self.winref
+            .borrow()
+            .window
+            .borrow_mut()
+            .write_buffer_uni(buf);
+    }
+
+    fn get_char(&mut self) -> Option<u8> {
+        panic!("Library Bug: Should not call this function");
+    }
+
+    fn get_buffer(&mut self, _maxlen: Option<usize>) -> Vec<u8> {
+        panic!("Library Bug: Should not call this function");
+    }
+
+    fn get_line(&mut self, _maxlen: Option<usize>) -> Vec<u8> {
+        panic!("Library Bug: Should not call this function");
+    }
+
+    fn get_char_uni(&mut self) -> Option<char> {
+        panic!("Library Bug: Should not call this function");
+    }
+
+    fn get_buffer_uni(&mut self, _maxlen: Option<usize>) -> String {
+        panic!("Library Bug: Should not call this function");
+    }
+
+    fn get_line_uni(&mut self, _maxlen: Option<usize>) -> String {
+        panic!("Library Bug: Should not call this function");
+    }
+
+    fn get_position(&self) -> u32 {
+        // Glk spec section 5.4, window streams always return 0 for get_position()
+        0
+    }
+
+    fn set_position(&mut self, _pos: i32, _seekmode: crate::GlkSeekMode) -> Option<()> {
+        // Glk Spec section 5.4, window streams ignore calls to set_position
+        Some(())
+    }
+
+    fn get_data(&self) -> Vec<u8> {
+        panic!("Library Bug: Should not call this function");
+    }
+
+    fn close(&mut self) {
+        // no-op
+    }
+
+    fn is_window_stream(&self) -> bool {
+        true
+    }
+
+    fn is_memory_stream(&self) -> bool {
+        false
+    }
 }
 
 /// The size of a window
@@ -74,7 +165,7 @@ pub struct GlkWindowSize {
     pub height: u32,
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub(crate) struct WindowManager<T: GlkWindow + Default> {
     root: Option<GlkWindowID>,
     windows: HashMap<GlkWindowID, WindowRef<T>>,
@@ -132,8 +223,8 @@ impl<T: GlkWindow + Default> WindowManager<T> {
         Some(self.windows.get(&win)?.make_clone())
     }
 
-    pub(crate) fn get_window(&self, win: GlkWindowID) -> Option<Rc<RefCell<T>>> {
-        Some(Rc::clone(&self.windows.get(&win)?.winref.borrow().window))
+    pub(crate) fn get_window(&self, win: GlkWindowID) -> Option<WindowRef<T>> {
+        Some(self.windows.get(&win)?.make_clone())
     }
 
     pub(crate) fn get_iter(&self) -> std::vec::IntoIter<GlkWindowID> {
@@ -555,76 +646,6 @@ pub mod testwin {
         }
     }
 
-    impl GlkStreamHandler for GlkTestWindow {
-        fn close(&mut self) {}
-
-        fn put_char(&mut self, ch: u8) {
-            self.textdata.push(ch as char);
-        }
-
-        fn put_char_uni(&mut self, ch: char) {
-            self.textdata.push(ch);
-        }
-
-        fn put_string(&mut self, s: &str) {
-            self.textdata.push_str(s);
-        }
-
-        fn put_buffer(&mut self, buf: &[u8]) {
-            self.textdata.extend(buf.iter().map(|a| *a as char));
-        }
-
-        fn put_buffer_uni(&mut self, buf: &[char]) {
-            self.textdata.extend(buf.iter());
-        }
-
-        fn get_char(&mut self) -> Option<u8> {
-            panic!("can't read windows stream");
-        }
-
-        fn get_buffer(&mut self, _maxlen: Option<usize>) -> Vec<u8> {
-            panic!("can't read windows stream");
-        }
-
-        fn get_line(&mut self, _maxlen: Option<usize>) -> Vec<u8> {
-            panic!("can't read windows stream");
-        }
-
-        fn get_char_uni(&mut self) -> Option<char> {
-            panic!("can't read windows stream");
-        }
-
-        fn get_buffer_uni(&mut self, _maxlen: Option<usize>) -> String {
-            panic!("can't read windows stream");
-        }
-
-        fn get_line_uni(&mut self, _maxlen: Option<usize>) -> String {
-            panic!("can't read windows stream");
-        }
-
-        fn is_window_stream(&self) -> bool {
-            true
-        }
-
-        fn is_memory_stream(&self) -> bool {
-            false
-        }
-
-        fn get_position(&self) -> u32 {
-            // Glk spec section 5.4, window streams always return 0 for get_position()
-            0
-        }
-
-        fn set_position(&mut self, _pos: i32, _seekmode: crate::GlkSeekMode) -> Option<()> {
-            // Glk Spec section 5.4, window streams ignore calls to set_position
-            Some(())
-        }
-
-        fn get_data(&self) -> Vec<u8> {
-            panic!("should not be able to extract data from a window");
-        }
-    }
-
     impl super::GlkWindow for GlkTestWindow {
         fn get_size(&self) -> GlkWindowSize {
             GlkWindowSize {
@@ -641,6 +662,31 @@ pub mod testwin {
         fn clear(&mut self) {
             self.cursor_x = 0;
             self.cursor_y = 0;
+        }
+
+        fn write_char(&mut self, ch: u8) -> usize {
+            self.textdata.push(ch as char);
+            1
+        }
+
+        fn write_string(&mut self, s: &str) -> usize {
+            self.textdata.push_str(s);
+            s.len()
+        }
+
+        fn write_buffer(&mut self, buf: &[u8]) -> usize {
+            self.textdata.extend(buf.iter().map(|a| *a as char));
+            buf.len()
+        }
+
+        fn write_char_uni(&mut self, ch: char) -> usize {
+            self.textdata.push(ch);
+            4
+        }
+
+        fn write_buffer_uni(&mut self, buf: &[char]) -> usize {
+            self.textdata.extend(buf.iter());
+            4 * buf.len()
         }
     }
 

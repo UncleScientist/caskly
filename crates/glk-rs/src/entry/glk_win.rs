@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crate::{
     stream::{GlkStreamID, GlkStreamResult},
     windows::{
@@ -34,9 +36,8 @@ impl<T: GlkWindow + Default> Glk<T> {
             self.win_mgr.open_window(wintype, rock)
         }?;
 
-        let stream_id = self
-            .stream_mgr
-            .new_stream(self.win_mgr.get_window(new_win)?, GlkFileMode::Write);
+        let win = Rc::new(RefCell::new(self.win_mgr.get_window(new_win)?));
+        let stream_id = self.stream_mgr.new_stream(win, GlkFileMode::Write);
         self.win_mgr.set_stream_id(new_win, stream_id)?;
 
         Some(new_win)

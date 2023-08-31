@@ -1,4 +1,3 @@
-use rglk::stream::GlkStreamHandler;
 use rglk::windows::{GlkWindow, GlkWindowSize, GlkWindowType};
 use rglk::Glk;
 
@@ -17,75 +16,28 @@ impl GlkWindow for SimpleWindow {
     fn clear(&mut self) {
         todo!()
     }
-}
 
-impl GlkStreamHandler for SimpleWindow {
-    fn put_char(&mut self, _ch: u8) {
-        todo!()
+    fn write_char(&mut self, ch: u8) -> usize {
+        print!("{ch}");
+        1
     }
 
-    fn put_string(&mut self, s: &str) {
+    fn write_string(&mut self, s: &str) -> usize {
         print!("{s}");
+        s.len()
     }
 
-    fn put_buffer(&mut self, _buf: &[u8]) {
-        todo!()
+    fn write_buffer(&mut self, buf: &[u8]) -> usize {
+        buf.iter().map(|byte| self.write_char(*byte)).sum()
     }
 
-    fn put_char_uni(&mut self, _ch: char) {
-        todo!()
+    fn write_char_uni(&mut self, ch: char) -> usize {
+        print!("{ch}");
+        4
     }
 
-    fn put_buffer_uni(&mut self, _buf: &[char]) {
-        todo!()
-    }
-
-    fn get_char(&mut self) -> Option<u8> {
-        todo!()
-    }
-
-    fn get_buffer(&mut self, _maxlen: Option<usize>) -> Vec<u8> {
-        todo!()
-    }
-
-    fn get_line(&mut self, _maxlen: Option<usize>) -> Vec<u8> {
-        todo!()
-    }
-
-    fn get_char_uni(&mut self) -> Option<char> {
-        todo!()
-    }
-
-    fn get_buffer_uni(&mut self, _maxlen: Option<usize>) -> String {
-        todo!()
-    }
-
-    fn get_line_uni(&mut self, _maxlen: Option<usize>) -> String {
-        todo!()
-    }
-
-    fn get_position(&self) -> u32 {
-        todo!()
-    }
-
-    fn set_position(&mut self, _pos: i32, _seekmode: rglk::GlkSeekMode) -> Option<()> {
-        todo!()
-    }
-
-    fn get_data(&self) -> Vec<u8> {
-        todo!()
-    }
-
-    fn close(&mut self) {
-        // nop
-    }
-
-    fn is_window_stream(&self) -> bool {
-        todo!()
-    }
-
-    fn is_memory_stream(&self) -> bool {
-        todo!()
+    fn write_buffer_uni(&mut self, buf: &[char]) -> usize {
+        buf.iter().map(|ch| self.write_char_uni(*ch)).sum()
     }
 }
 

@@ -6,7 +6,7 @@ use crate::{GlkFileMode, GlkRock, GlkSeekMode};
 /// An opaque stream ID
 pub type GlkStreamID = u32;
 
-#[derive(Default, Debug)]
+#[derive(Default)]
 pub(crate) struct StreamManager {
     stream: HashMap<GlkStreamID, GlkStream>,
     val: GlkStreamID,
@@ -44,7 +44,6 @@ impl StreamManager {
     }
 }
 
-#[derive(Debug)]
 pub(crate) struct GlkStream {
     sh: Rc<RefCell<dyn GlkStreamHandler>>,
     mode: GlkFileMode,
@@ -192,7 +191,7 @@ impl GlkStream {
 }
 
 /// Define this for your window type
-pub trait GlkStreamHandler: Debug {
+pub trait GlkStreamHandler {
     /// Write a byte to a stream
     fn put_char(&mut self, ch: u8);
 
