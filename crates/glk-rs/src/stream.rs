@@ -188,59 +188,35 @@ impl GlkStream {
             write_count: self.write_count as u32,
         }
     }
+
+    pub fn get_echo_stream(&self) -> Option<GlkStreamID> {
+        self.sh.borrow().get_echo_stream()
+    }
 }
 
-/// Define this for your window type
-pub trait GlkStreamHandler {
-    /// Write a byte to a stream
+pub(crate) trait GlkStreamHandler {
     fn put_char(&mut self, ch: u8);
-
-    /// Write a unicode string to a stream
     fn put_string(&mut self, s: &str);
-
-    /// write an array of bytes to a stream
     fn put_buffer(&mut self, buf: &[u8]);
-
-    /// write a unicode character to a stream
     fn put_char_uni(&mut self, ch: char);
     // note: put_string_uni() is not here because put_string() handles it
 
-    /// write an array of unicode characters to a stream
     fn put_buffer_uni(&mut self, buf: &[char]);
-
-    /// read a byte from a stream
     fn get_char(&mut self) -> Option<u8>;
-
-    /// read an array of bytes from a stream
     fn get_buffer(&mut self, maxlen: Option<usize>) -> Vec<u8>;
-
-    /// read a line of bytes from a stream (up to a newline character)
     fn get_line(&mut self, maxlen: Option<usize>) -> Vec<u8>;
-
-    /// read a unicode character from a stream
     fn get_char_uni(&mut self) -> Option<char>;
-
-    /// read a unicode string from a stream
     fn get_buffer_uni(&mut self, maxlen: Option<usize>) -> String;
-
-    /// read a unicode string up to a newline from a stream
     fn get_line_uni(&mut self, maxlen: Option<usize>) -> String;
 
-    /// get the read/write position of the underlying file
     fn get_position(&self) -> u32;
-
-    /// set the read/write position for the underlying file
     fn set_position(&mut self, pos: i32, seekmode: GlkSeekMode) -> Option<()>;
 
-    /// for memory streams only: retrieve the data buffer
     fn get_data(&self) -> Vec<u8>;
+    fn get_echo_stream(&self) -> Option<GlkStreamID>;
 
-    /// close/finalize a stream
     fn close(&mut self);
 
-    /// return true for window streams
     fn is_window_stream(&self) -> bool;
-
-    /// return true for memory streams
     fn is_memory_stream(&self) -> bool;
 }

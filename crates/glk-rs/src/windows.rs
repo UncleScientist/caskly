@@ -23,6 +23,7 @@ pub struct Window<T: GlkWindow + Default> {
     #[cfg(not(test))]
     window: Rc<RefCell<T>>,
     stream: GlkStreamID,
+    echo_stream: Option<GlkStreamID>,
 }
 
 /// Type of window to create
@@ -80,6 +81,10 @@ pub struct WindowRef<T: GlkWindow + Default> {
 }
 
 impl<T: GlkWindow + Default> GlkStreamHandler for WindowRef<T> {
+    fn get_echo_stream(&self) -> Option<GlkStreamID> {
+        self.winref.borrow().echo_stream
+    }
+
     fn put_char(&mut self, ch: u8) {
         self.winref.borrow().window.borrow_mut().write_char(ch);
     }
@@ -241,6 +246,16 @@ impl<T: GlkWindow + Default> WindowManager<T> {
         Some(())
     }
 
+    pub(crate) fn set_echo_stream(&self, win: GlkWindowID, stream: Option<GlkStreamID>) {
+        if let Some(window) = self.windows.get(&win) {
+            window.winref.borrow_mut().echo_stream = stream;
+        }
+    }
+
+    pub(crate) fn get_echo_stream(&self, win: GlkWindowID) -> Option<GlkStreamID> {
+        self.windows.get(&win)?.winref.borrow_mut().echo_stream
+    }
+
     pub(crate) fn split(
         &mut self,
         parent: GlkWindowID,
@@ -278,11 +293,12 @@ impl<T: GlkWindow + Default> WindowManager<T> {
 }
 
 impl<T: GlkWindow + Default> WindowRef<T> {
-    /*
-    pub(crate) fn get_winref(&self) -> Rc<RefCell<T>> {
-        Rc::clone(&self.winref.borrow().window)
+    pub(crate) fn remove_echo_stream_if_matches(&mut self, stream: GlkStreamID) {
+        if self.winref.borrow().echo_stream == Some(stream) {
+            self.winref.borrow_mut().echo_stream = None;
+        }
     }
-    */
+
     pub(crate) fn id(&self) -> GlkWindowID {
         self.winref.borrow().this_id
     }
@@ -951,14 +967,4 @@ mod test {
             "test buffer".chars().collect::<Vec<_>>()
         );
     }
-
-    /*
-    #[test]
-    fn can_put_character_in_window() {
-        let mut winsys = WindowManager::<GlkTestWindow>::default();
-        let win = winsys.open_window(WindowType::TextGrid, 32);
-        win.put_char(b'a');
-        assert_eq!(win.winref.borrow().window.textdata, "a");
-    }
-    */
 }

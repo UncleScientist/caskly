@@ -96,6 +96,20 @@ impl<T: GlkWindow + Default> Glk<T> {
     }
 
     /*
+     * Glk Spec Section 3.6 - Echo Streams
+     */
+
+    /// set the echo stream of a window
+    pub fn window_set_echo_stream(&mut self, win: GlkWindowID, stream: Option<GlkStreamID>) {
+        self.win_mgr.set_echo_stream(win, stream);
+    }
+
+    /// get the echo stream of a window
+    pub fn window_get_echo_stream(&self, win: GlkWindowID) -> Option<GlkStreamID> {
+        self.win_mgr.get_echo_stream(win)
+    }
+
+    /*
      * Glk Spec Section 3.7 - Other Window Functions
      */
 

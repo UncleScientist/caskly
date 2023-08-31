@@ -1,6 +1,9 @@
 use std::cell::RefCell;
 
-use crate::{stream::GlkStreamHandler, GlkSeekMode};
+use crate::{
+    stream::{GlkStreamHandler, GlkStreamID},
+    GlkSeekMode,
+};
 
 #[derive(Debug, Default)]
 pub(crate) struct MemStream {
@@ -60,6 +63,10 @@ impl MemStream {
 }
 
 impl GlkStreamHandler for MemStream {
+    fn get_echo_stream(&self) -> Option<GlkStreamID> {
+        None
+    }
+
     fn close(&mut self) {}
 
     fn put_char(&mut self, ch: u8) {

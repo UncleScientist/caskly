@@ -71,11 +71,9 @@ impl<T: GlkWindow + Default> Glk<T> {
     pub fn put_char_stream(&mut self, streamid: GlkStreamID, ch: u8) {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.put_char(ch);
-            /*
             if let Some(echo) = stream.get_echo_stream() {
-                echo.put_char(ch);
+                self.put_char_stream(echo, ch);
             }
-            */
         }
     }
 
@@ -83,6 +81,9 @@ impl<T: GlkWindow + Default> Glk<T> {
     pub fn put_string_stream(&mut self, streamid: GlkStreamID, s: &str) {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.put_string(s);
+            if let Some(echo) = stream.get_echo_stream() {
+                self.put_string_stream(echo, s);
+            }
         }
     }
 
@@ -96,6 +97,9 @@ impl<T: GlkWindow + Default> Glk<T> {
     pub fn put_buffer_stream(&mut self, streamid: GlkStreamID, buf: &[u8]) {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.put_buffer(buf);
+            if let Some(echo) = stream.get_echo_stream() {
+                self.put_buffer_stream(echo, buf);
+            }
         }
     }
 
@@ -103,6 +107,9 @@ impl<T: GlkWindow + Default> Glk<T> {
     pub fn put_char_stream_uni(&mut self, streamid: GlkStreamID, ch: char) {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.put_char_uni(ch);
+            if let Some(echo) = stream.get_echo_stream() {
+                self.put_char_stream_uni(echo, ch);
+            }
         }
     }
 
@@ -110,6 +117,9 @@ impl<T: GlkWindow + Default> Glk<T> {
     pub fn put_buffer_stream_uni(&mut self, streamid: GlkStreamID, buf: &[char]) {
         if let Some(stream) = self.stream_mgr.get(streamid) {
             stream.put_buffer_uni(buf);
+            if let Some(echo) = stream.get_echo_stream() {
+                self.put_buffer_stream_uni(echo, buf);
+            }
         }
     }
 
@@ -184,13 +194,23 @@ impl<T: GlkWindow + Default> Glk<T> {
     ) -> Option<(GlkStreamResult, Option<Vec<u8>>)> {
         let stream = self.stream_mgr.get(streamid)?;
         if stream.is_window_stream() {
-            None
-        } else if stream.is_memory_stream() {
+            return None;
+        }
+
+        let result = if stream.is_memory_stream() {
             let result = stream.get_data();
             Some((self.stream_mgr.close(streamid)?, Some(result)))
         } else {
             Some((self.stream_mgr.close(streamid)?, None))
+        };
+
+        for win in self.window_iterate() {
+            if let Some(mut window) = self.win_mgr.get_ref(win) {
+                window.remove_echo_stream_if_matches(streamid);
+            }
         }
+
+        result
     }
 
     /*

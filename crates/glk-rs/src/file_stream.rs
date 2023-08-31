@@ -6,7 +6,10 @@ use std::{
     path::PathBuf,
 };
 
-use crate::{stream::GlkStreamHandler, GlkFileMode, GlkFileUsage, GlkRock};
+use crate::{
+    stream::{GlkStreamHandler, GlkStreamID},
+    GlkFileMode, GlkFileUsage, GlkRock,
+};
 
 /// A reference to a file
 pub type GlkFileRef = u32;
@@ -146,6 +149,10 @@ impl FileStream {
 }
 
 impl GlkStreamHandler for FileStream {
+    fn get_echo_stream(&self) -> Option<GlkStreamID> {
+        None
+    }
+
     fn close(&mut self) {
         let _ = self.fp.take();
     }

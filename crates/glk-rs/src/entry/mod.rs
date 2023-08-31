@@ -184,7 +184,10 @@ impl ToChar for char {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::windows::testwin::GlkTestWindow;
+    use crate::{
+        windows::{testwin::GlkTestWindow, GlkWindowType},
+        GlkFileMode,
+    };
 
     #[test]
     fn can_get_glk_version() {
@@ -296,5 +299,52 @@ mod test {
     fn at_startup_there_is_no_default_stream() {
         let glk = Glk::<GlkTestWindow>::new();
         assert!(glk.stream_get_current().is_none());
+    }
+
+    #[test]
+    fn can_write_to_a_window_echo_stream() {
+        let mut glk = Glk::<GlkTestWindow>::new();
+
+        let win = glk
+            .window_open(None, GlkWindowType::TextBuffer, None, 73)
+            .unwrap();
+        assert!(glk.window_get_echo_stream(win).is_none());
+
+        let win_stream = glk.window_get_stream(win).unwrap();
+
+        let mem_stream = glk.stream_open_memory(vec![0u8; 20], GlkFileMode::Write, 74);
+
+        glk.window_set_echo_stream(win, Some(mem_stream));
+        let echo_stream = glk.window_get_echo_stream(win);
+        assert_eq!(Some(mem_stream), echo_stream);
+
+        glk.put_buffer_stream(
+            win_stream,
+            "hello, world!"
+                .chars()
+                .map(|ch| ch as u8)
+                .collect::<Vec<_>>()
+                .as_slice(),
+        );
+
+        // this should detach the echo stream from the window automatically
+        let close = glk.stream_close(mem_stream);
+        assert!(close.is_some());
+        if let Some((result, Some(bytes))) = close {
+            assert_eq!(result.read_count, 0);
+            assert_eq!(result.write_count, 13);
+            assert_eq!(
+                bytes[0..13],
+                "hello, world!"
+                    .chars()
+                    .map(|ch| ch as u8)
+                    .collect::<Vec<_>>()
+            );
+        } else {
+            panic!("stream_close() did not return valid results");
+        }
+
+        let echo_stream = glk.window_get_echo_stream(win);
+        assert!(echo_stream.is_none());
     }
 }
