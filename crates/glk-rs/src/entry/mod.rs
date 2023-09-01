@@ -1,3 +1,4 @@
+mod glk_event;
 mod glk_stream;
 mod glk_win;
 
@@ -5,6 +6,7 @@ use std::path::Path;
 
 use unicode_normalization::UnicodeNormalization;
 
+use crate::events::EventManager;
 use crate::file_stream::{FileRefManager, GlkFileRef};
 use crate::gestalt::OutputType;
 use crate::keycode::Keycode;
@@ -18,6 +20,7 @@ use crate::{gestalt::*, GlkFileUsage};
 #[derive(Default)]
 pub struct Glk<T: GlkWindow + Default + 'static> {
     win_mgr: WindowManager<T>,
+    event_mgr: EventManager,
     stream_mgr: StreamManager,
     fileref_mgr: FileRefManager,
     default_stream: Option<GlkStreamID>,

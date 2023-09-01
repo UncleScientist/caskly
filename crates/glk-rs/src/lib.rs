@@ -14,6 +14,9 @@ pub mod keycode;
 /// The windows module
 pub mod windows;
 
+/// The events module
+pub mod events;
+
 /// The prelude for the library
 pub mod prelude {
     /// A rock value
@@ -95,6 +98,7 @@ pub mod prelude {
 
     /// The main entry point for all things glk
     pub use crate::entry::Glk;
+    pub use crate::events::*;
     pub use crate::gestalt::*;
     pub use crate::keycode::*;
     pub use crate::windows::*;
