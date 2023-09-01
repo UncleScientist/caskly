@@ -160,7 +160,7 @@ impl GlkStreamHandler for FileStream {
 
     fn put_char(&mut self, ch: u8) -> usize {
         if let Some(fp) = self.fp.as_mut() {
-            if let Ok(_) = write!(fp, "{ch}") {
+            if write!(fp, "{ch}").is_ok() {
                 return 1;
             }
         }
@@ -179,7 +179,7 @@ impl GlkStreamHandler for FileStream {
     fn put_char_uni(&mut self, ch: char) -> usize {
         if let Some(fp) = self.fp.as_mut() {
             let bytestream = GlkStream::char_to_bytestream(ch);
-            if let Ok(_) = fp.write(bytestream.as_slice()) {
+            if fp.write(bytestream.as_slice()).is_ok() {
                 return bytestream.len();
             }
         }
