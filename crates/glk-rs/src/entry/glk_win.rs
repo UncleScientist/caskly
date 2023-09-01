@@ -1,12 +1,13 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
+    prelude::GlkRock,
     stream::{GlkStreamID, GlkStreamResult},
     windows::{
         GlkWindow, GlkWindowID, GlkWindowSize, GlkWindowType, WindowRef, WindowSplitMethod,
         WindowType,
     },
-    Glk, GlkFileMode, GlkRock,
+    Glk, GlkFileMode,
 };
 
 impl<T: GlkWindow + Default> Glk<T> {

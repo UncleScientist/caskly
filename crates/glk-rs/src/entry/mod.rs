@@ -8,9 +8,9 @@ use unicode_normalization::UnicodeNormalization;
 use crate::file_stream::{FileRefManager, GlkFileRef};
 use crate::gestalt::OutputType;
 use crate::keycode::Keycode;
+use crate::prelude::GlkRock;
 use crate::stream::{GlkStreamID, StreamManager};
 use crate::windows::{GlkWindow, WindowManager};
-use crate::GlkRock;
 use crate::{gestalt::*, GlkFileUsage};
 
 /// The GLK object. TODO: Insert basic usage here

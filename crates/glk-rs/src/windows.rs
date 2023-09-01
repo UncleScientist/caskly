@@ -1,5 +1,5 @@
+use crate::prelude::GlkRock;
 use crate::stream::{GlkStreamHandler, GlkStreamID};
-use crate::GlkRock;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};

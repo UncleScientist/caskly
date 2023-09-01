@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::{GlkFileMode, GlkRock, GlkSeekMode};
+use crate::{prelude::GlkRock, GlkFileMode, GlkSeekMode};
 
 /// An opaque stream ID
 pub type GlkStreamID = u32;

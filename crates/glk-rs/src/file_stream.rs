@@ -7,8 +7,9 @@ use std::{
 };
 
 use crate::{
+    prelude::GlkRock,
     stream::{GlkStream, GlkStreamHandler, GlkStreamID},
-    GlkFileMode, GlkFileUsage, GlkRock,
+    GlkFileMode, GlkFileUsage,
 };
 
 /// A reference to a file

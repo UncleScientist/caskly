@@ -1,5 +1,4 @@
-use rglk::windows::{GlkWindow, GlkWindowSize, GlkWindowType};
-use rglk::Glk;
+use rglk::prelude::*;
 
 #[derive(Debug, Default)]
 struct SimpleWindow;

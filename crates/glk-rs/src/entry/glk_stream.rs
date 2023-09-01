@@ -3,9 +3,10 @@ use std::{cell::RefCell, rc::Rc};
 use crate::{
     file_stream::{FileStream, GlkFileRef},
     mem_stream::MemStream,
+    prelude::GlkRock,
     stream::{GlkStreamID, GlkStreamResult},
     windows::GlkWindow,
-    Glk, GlkFileMode, GlkRock, GlkSeekMode,
+    Glk, GlkFileMode, GlkSeekMode,
 };
 
 impl<T: GlkWindow + Default> Glk<T> {
