@@ -85,28 +85,28 @@ impl<T: GlkWindow + Default> GlkStreamHandler for WindowRef<T> {
         self.winref.borrow().echo_stream
     }
 
-    fn put_char(&mut self, ch: u8) {
-        self.winref.borrow().window.borrow_mut().write_char(ch);
+    fn put_char(&mut self, ch: u8) -> usize {
+        self.winref.borrow().window.borrow_mut().write_char(ch)
     }
 
-    fn put_string(&mut self, s: &str) {
-        self.winref.borrow().window.borrow_mut().write_string(s);
+    fn put_string(&mut self, s: &str) -> usize {
+        self.winref.borrow().window.borrow_mut().write_string(s)
     }
 
-    fn put_buffer(&mut self, buf: &[u8]) {
-        self.winref.borrow().window.borrow_mut().write_buffer(buf);
+    fn put_buffer(&mut self, buf: &[u8]) -> usize {
+        self.winref.borrow().window.borrow_mut().write_buffer(buf)
     }
 
-    fn put_char_uni(&mut self, ch: char) {
-        self.winref.borrow().window.borrow_mut().write_char_uni(ch);
+    fn put_char_uni(&mut self, ch: char) -> usize {
+        self.winref.borrow().window.borrow_mut().write_char_uni(ch)
     }
 
-    fn put_buffer_uni(&mut self, buf: &[char]) {
+    fn put_buffer_uni(&mut self, buf: &[char]) -> usize {
         self.winref
             .borrow()
             .window
             .borrow_mut()
-            .write_buffer_uni(buf);
+            .write_buffer_uni(buf)
     }
 
     fn get_char(&mut self) -> Option<u8> {

@@ -88,32 +88,27 @@ impl GlkStream {
 
     pub fn put_char(&mut self, ch: u8) {
         self.check_write();
-        self.sh.borrow_mut().put_char(ch);
-        self.write_count += 1;
+        self.write_count += self.sh.borrow_mut().put_char(ch);
     }
 
     pub fn put_string(&mut self, s: &str) {
         self.check_write();
-        self.sh.borrow_mut().put_string(s);
-        self.write_count += s.len();
+        self.write_count += self.sh.borrow_mut().put_string(s);
     }
 
     pub fn put_buffer(&mut self, buf: &[u8]) {
         self.check_write();
-        self.sh.borrow_mut().put_buffer(buf);
-        self.write_count += buf.len();
+        self.write_count += self.sh.borrow_mut().put_buffer(buf);
     }
 
     pub fn put_char_uni(&mut self, ch: char) {
         self.check_write();
-        self.sh.borrow_mut().put_char_uni(ch);
-        self.write_count += 4;
+        self.write_count += self.sh.borrow_mut().put_char_uni(ch);
     }
 
     pub fn put_buffer_uni(&mut self, buf: &[char]) {
         self.check_write();
-        self.sh.borrow_mut().put_buffer_uni(buf);
-        self.write_count += 4 * buf.len();
+        self.write_count += self.sh.borrow_mut().put_buffer_uni(buf);
     }
 
     pub fn get_char(&mut self) -> Option<u8> {
@@ -192,16 +187,23 @@ impl GlkStream {
     pub fn get_echo_stream(&self) -> Option<GlkStreamID> {
         self.sh.borrow().get_echo_stream()
     }
+
+    // internal helper functions
+    pub(crate) fn char_to_bytestream(ch: char) -> Vec<u8> {
+        let mut bytes = [0u8; 4];
+        let len = ch.encode_utf8(&mut bytes).len();
+        Vec::from_iter(bytes[0..len].iter().copied())
+    }
 }
 
 pub(crate) trait GlkStreamHandler {
-    fn put_char(&mut self, ch: u8);
-    fn put_string(&mut self, s: &str);
-    fn put_buffer(&mut self, buf: &[u8]);
-    fn put_char_uni(&mut self, ch: char);
+    fn put_char(&mut self, ch: u8) -> usize;
+    fn put_string(&mut self, s: &str) -> usize;
+    fn put_buffer(&mut self, buf: &[u8]) -> usize;
+    fn put_char_uni(&mut self, ch: char) -> usize;
+    fn put_buffer_uni(&mut self, buf: &[char]) -> usize;
     // note: put_string_uni() is not here because put_string() handles it
 
-    fn put_buffer_uni(&mut self, buf: &[char]);
     fn get_char(&mut self) -> Option<u8>;
     fn get_buffer(&mut self, maxlen: Option<usize>) -> Vec<u8>;
     fn get_line(&mut self, maxlen: Option<usize>) -> Vec<u8>;

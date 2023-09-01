@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 
 use crate::{
-    stream::{GlkStreamHandler, GlkStreamID},
+    stream::{GlkStream, GlkStreamHandler, GlkStreamID},
     GlkSeekMode,
 };
 
@@ -69,37 +69,31 @@ impl GlkStreamHandler for MemStream {
 
     fn close(&mut self) {}
 
-    fn put_char(&mut self, ch: u8) {
+    fn put_char(&mut self, ch: u8) -> usize {
         if *self.cursor.borrow() < self.buf.len() {
             self.buf[*self.cursor.borrow()] = ch;
             *self.cursor.borrow_mut() += 1;
+            1
+        } else {
+            0
         }
     }
 
-    fn put_char_uni(&mut self, ch: char) {
-        let chu32 = ch as u32;
-        self.put_char((chu32 >> 24) as u8);
-        self.put_char(((chu32 >> 16) & 0xff) as u8);
-        self.put_char(((chu32 >> 8) & 0xff) as u8);
-        self.put_char((chu32 & 0xff) as u8);
+    fn put_char_uni(&mut self, ch: char) -> usize {
+        let bytestream = GlkStream::char_to_bytestream(ch);
+        bytestream.iter().map(|byte| self.put_char(*byte)).sum()
     }
 
-    fn put_string(&mut self, s: &str) {
-        for ch in s.chars() {
-            self.put_char_uni(ch);
-        }
+    fn put_string(&mut self, s: &str) -> usize {
+        s.chars().map(|ch| self.put_char_uni(ch)).sum()
     }
 
-    fn put_buffer(&mut self, buf: &[u8]) {
-        for byte in buf {
-            self.put_char(*byte);
-        }
+    fn put_buffer(&mut self, buf: &[u8]) -> usize {
+        buf.iter().map(|byte| self.put_char(*byte)).sum()
     }
 
-    fn put_buffer_uni(&mut self, buf: &[char]) {
-        for ch in buf {
-            self.put_char_uni(*ch);
-        }
+    fn put_buffer_uni(&mut self, buf: &[char]) -> usize {
+        buf.iter().map(|ch| self.put_char_uni(*ch)).sum()
     }
 
     fn get_char(&mut self) -> Option<u8> {

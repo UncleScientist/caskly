@@ -7,7 +7,7 @@ use std::{
 };
 
 use crate::{
-    stream::{GlkStreamHandler, GlkStreamID},
+    stream::{GlkStream, GlkStreamHandler, GlkStreamID},
     GlkFileMode, GlkFileUsage, GlkRock,
 };
 
@@ -157,35 +157,36 @@ impl GlkStreamHandler for FileStream {
         let _ = self.fp.take();
     }
 
-    fn put_char(&mut self, ch: u8) {
+    fn put_char(&mut self, ch: u8) -> usize {
         if let Some(fp) = self.fp.as_mut() {
-            let _ = write!(fp, "{ch}");
+            if let Ok(_) = write!(fp, "{ch}") {
+                return 1;
+            }
         }
+
+        0
     }
 
-    fn put_string(&mut self, s: &str) {
+    fn put_string(&mut self, s: &str) -> usize {
+        s.chars().map(|ch| self.put_char_uni(ch)).sum()
+    }
+
+    fn put_buffer(&mut self, buf: &[u8]) -> usize {
+        buf.iter().map(|byte| self.put_char(*byte)).sum()
+    }
+
+    fn put_char_uni(&mut self, ch: char) -> usize {
         if let Some(fp) = self.fp.as_mut() {
-            let _ = write!(fp, "{s}");
+            let bytestream = GlkStream::char_to_bytestream(ch);
+            if let Ok(_) = fp.write(bytestream.as_slice()) {
+                return bytestream.len();
+            }
         }
+        0
     }
 
-    fn put_buffer(&mut self, _buf: &[u8]) {
-        todo!()
-    }
-
-    fn put_char_uni(&mut self, ch: char) {
-        let mut bytes = [0u8; 4];
-        let len = ch.encode_utf8(&mut bytes).len();
-
-        if let Some(fp) = self.fp.as_mut() {
-            let _ = fp.write(&bytes[0..len]);
-        }
-    }
-
-    fn put_buffer_uni(&mut self, buf: &[char]) {
-        for ch in buf {
-            self.put_char_uni(*ch);
-        }
+    fn put_buffer_uni(&mut self, buf: &[char]) -> usize {
+        buf.iter().map(|ch| self.put_char_uni(*ch)).sum()
     }
 
     fn get_char(&mut self) -> Option<u8> {
