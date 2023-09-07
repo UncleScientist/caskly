@@ -3,9 +3,26 @@ use crate::{events::GlkEvent, windows::GlkWindow};
 use super::Glk;
 
 impl<T: GlkWindow + Default> Glk<T> {
+    /*
+     * Glk Section 4 - Events
+     */
     /// Block until event arrives
+    pub fn select(&mut self) -> GlkEvent {
+        self.event_mgr.block_until_event()
+    }
+
+    /// check to see if events are available, and return one. Otherwise return GlkEvent::None
     pub fn select_poll(&mut self) -> GlkEvent {
         self.event_mgr.pop_event()
+    }
+
+    /*
+     * Glk Section 4.4 - Timer Events
+     */
+
+    /// Request a timer event to be sent at fixed intervals, or 0 to turn off
+    pub fn request_timer_events(&mut self, millisecs: u32) {
+        self.event_mgr.set_timer(millisecs)
     }
 }
 

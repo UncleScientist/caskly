@@ -1,3 +1,8 @@
+use std::{
+    thread,
+    time::{Duration, Instant},
+};
+
 use rglk::prelude::*;
 
 #[derive(Debug, Default)]
@@ -55,4 +60,33 @@ fn main() {
         "read = {}, wrote = {}",
         results.read_count, results.write_count
     );
+
+    println!("{:?}", glk.select());
+
+    assert_eq!(glk.select_poll(), GlkEvent::None);
+    glk.request_timer_events(1000);
+    thread::sleep(Duration::from_millis(1500));
+    glk.request_timer_events(0);
+    assert_eq!(glk.select_poll(), GlkEvent::Timer);
+    assert_eq!(glk.select_poll(), GlkEvent::None);
+
+    glk.request_timer_events(1000);
+    for _ in 0..3 {
+        println!("{:?} {:?}", Instant::now(), glk.select());
+    }
+
+    glk.request_timer_events(100_000);
+    thread::sleep(Duration::from_secs(3));
+    glk.request_timer_events(1000);
+    println!("{:?} select returned: {:?}", Instant::now(), glk.select());
+
+    println!("{:?} delaying...", Instant::now());
+    thread::sleep(Duration::from_secs(5));
+    println!("{:?} delay finished", Instant::now());
+
+    for _ in 0..5 {
+        println!("{:?} {:?}", Instant::now(), glk.select());
+    }
+
+    println!("Done");
 }
