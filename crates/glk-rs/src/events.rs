@@ -117,12 +117,26 @@ impl EventManager {
         }
     }
 
+    fn time_left(&self) -> Duration {
+        let now = Instant::now();
+        (self.last_timer_event + self.timer_interval) - now
+    }
+
     // This will check for an event and return it. If no events are available,
     // then return GlkEvent::None
     pub(crate) fn pop_event(&mut self) -> GlkEvent {
         self.fill_event_queue();
 
-        self.pending.pop_front().unwrap_or(GlkEvent::None)
+        if let Some(event) = self.pending.pop_front() {
+            return event;
+        }
+
+        if !self.timer_interval.is_zero() && self.time_left().is_zero() {
+            self.last_timer_event = Instant::now();
+            return GlkEvent::Timer;
+        }
+
+        GlkEvent::None
     }
 
     // This will block until an event is available, and then return it. Should never
@@ -136,8 +150,7 @@ impl EventManager {
         }
 
         if !self.timer_interval.is_zero() {
-            let now = Instant::now();
-            let timeout = (self.last_timer_event + self.timer_interval) - now;
+            let timeout = self.time_left();
             match self.rx.recv_timeout(timeout) {
                 Ok(event) => event,
                 Err(RecvTimeoutError::Timeout) => {

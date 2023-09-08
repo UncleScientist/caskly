@@ -22,6 +22,11 @@ fn main() {
         results.read_count, results.write_count
     );
 
+    glk.request_timer_events(250);
+    thread::sleep(Duration::from_secs(1));
+    assert_eq!(glk.select_poll(), GlkEvent::Timer);
+    glk.request_timer_events(0);
+
     println!("enter a line of text");
     let buf = [0u8; 80];
     glk.request_line_event(win, &buf, 0);
@@ -31,6 +36,7 @@ fn main() {
     }
 
     assert_eq!(glk.select_poll(), GlkEvent::None);
+
     glk.request_timer_events(1000);
     thread::sleep(Duration::from_millis(1500));
     glk.request_timer_events(0);
