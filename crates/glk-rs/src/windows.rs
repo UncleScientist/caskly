@@ -1,8 +1,10 @@
+use crate::events::{GlkEvent, LineInput};
 use crate::prelude::GlkRock;
 use crate::stream::{GlkStreamHandler, GlkStreamID};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
+use std::sync::mpsc::Sender;
 
 /// An opaque type for windows
 pub type GlkWindowID = u32;
@@ -48,6 +50,9 @@ pub enum GlkWindowType {
 /// Interface for a window type; implement this to create a back-end for your
 /// window.
 pub trait GlkWindow {
+    /// set up a window with specific parameters
+    fn init(&mut self, winid: GlkWindowID);
+
     /// returns the size of the window in its measurement system
     fn get_size(&self) -> GlkWindowSize;
 
@@ -56,6 +61,9 @@ pub trait GlkWindow {
 
     /// clear a window - the way windows get cleared depends on their GlkWindowType
     fn clear(&mut self);
+
+    /// read a line from a window and transmit it to the event queue - must run separate thread
+    fn get_line(&mut self, event: LineInput, initlen: usize, tx: Sender<GlkEvent>);
 
     /// write a byte to a window
     fn write_char(&mut self, ch: u8) -> usize;
@@ -187,11 +195,12 @@ impl<T: GlkWindow + Default> WindowManager<T> {
         if self.root.is_none() {
             assert!(self.windows.is_empty());
             let root_win = WindowRef {
-                winref: Rc::new(RefCell::new(Window {
+                winref: Rc::new(RefCell::new(Window::<T> {
                     wintype: WindowType::Root,
                     ..Window::default()
                 })),
             };
+            root_win.winref.borrow().window.borrow_mut().init(self.val);
             self.root = Some(0);
             self.windows.insert(0, root_win);
             self.val += 1;
@@ -210,6 +219,7 @@ impl<T: GlkWindow + Default> WindowManager<T> {
             })),
         };
 
+        main_win.winref.borrow().window.borrow_mut().init(self.val);
         root_win.winref.borrow_mut().child1 = Some(main_win.make_clone());
 
         self.windows.insert(self.val, main_win);
@@ -268,10 +278,12 @@ impl<T: GlkWindow + Default> WindowManager<T> {
         let (pairwin, newwin) = parentwin.split(method, wintype, rock);
 
         pairwin.winref.borrow_mut().this_id = self.val;
+        pairwin.winref.borrow().window.borrow_mut().init(self.val);
         self.windows.insert(self.val, pairwin);
         self.val += 1;
 
         newwin.winref.borrow_mut().this_id = self.val;
+        newwin.winref.borrow().window.borrow_mut().init(self.val);
         self.windows.insert(self.val, newwin);
         self.val += 1;
 
@@ -293,6 +305,14 @@ impl<T: GlkWindow + Default> WindowManager<T> {
 }
 
 impl<T: GlkWindow + Default> WindowRef<T> {
+    pub(crate) fn get_line(&self, input: LineInput, initlen: usize, tx: Sender<GlkEvent>) {
+        self.winref
+            .borrow()
+            .window
+            .borrow_mut()
+            .get_line(input, initlen, tx);
+    }
+
     pub(crate) fn remove_echo_stream_if_matches(&mut self, stream: GlkStreamID) {
         if self.winref.borrow().echo_stream == Some(stream) {
             self.winref.borrow_mut().echo_stream = None;
@@ -635,6 +655,7 @@ pub mod testwin {
 
     #[derive(Debug)]
     pub struct GlkTestWindow {
+        pub winid: GlkWindowID,
         pub width: u32,
         pub height: u32,
         pub cursor_x: u32,
@@ -649,6 +670,7 @@ pub mod testwin {
     impl Default for GlkTestWindow {
         fn default() -> Self {
             Self {
+                winid: 0,
                 width: 12,
                 height: 32,
                 cursor_x: 0,
@@ -663,6 +685,10 @@ pub mod testwin {
     }
 
     impl super::GlkWindow for GlkTestWindow {
+        fn init(&mut self, winid: GlkWindowID) {
+            self.winid = winid;
+        }
+
         fn get_size(&self) -> GlkWindowSize {
             GlkWindowSize {
                 width: self.width,
@@ -678,6 +704,10 @@ pub mod testwin {
         fn clear(&mut self) {
             self.cursor_x = 0;
             self.cursor_y = 0;
+        }
+
+        fn get_line(&mut self, _event: LineInput, _initlen: usize, _tx: Sender<GlkEvent>) {
+            // no-op
         }
 
         fn write_char(&mut self, ch: u8) -> usize {

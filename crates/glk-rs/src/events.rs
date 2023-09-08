@@ -4,7 +4,19 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{keycode::Keycode, windows::GlkWindowID};
+use crate::{
+    keycode::Keycode,
+    windows::{GlkWindow, GlkWindowID, WindowRef},
+};
+
+/// A line input event - either Latin-1 characters, or Unicode codepoints
+#[derive(PartialEq, Debug)]
+pub enum LineInput {
+    /// Latin-1
+    Latin1(Vec<u8>),
+    /// Unicode
+    Unicode(Vec<u32>),
+}
 
 /// Events
 #[derive(PartialEq, Debug)]
@@ -29,7 +41,7 @@ pub enum GlkEvent {
         win: GlkWindowID,
 
         /// The line that was read
-        buf: Vec<u32>,
+        buf: LineInput,
     },
 
     /// A mouse event from a text grid or graphics window
@@ -81,18 +93,18 @@ pub(crate) struct EventManager {
     pending: VecDeque<GlkEvent>,
     last_timer_event: Instant,
     timer_interval: Duration,
-    _tx: Sender<GlkEvent>,
+    tx: Sender<GlkEvent>,
     rx: Receiver<GlkEvent>,
 }
 
 impl Default for EventManager {
     fn default() -> Self {
-        let (_tx, rx) = mpsc::channel();
+        let (tx, rx) = mpsc::channel();
         Self {
             pending: VecDeque::new(),
             last_timer_event: Instant::now(),
             timer_interval: Duration::from_millis(0),
-            _tx,
+            tx,
             rx,
         }
     }
@@ -145,6 +157,16 @@ impl EventManager {
 
     pub(crate) fn set_timer(&mut self, ms: u32) {
         self.timer_interval = Duration::from_millis(ms as u64);
+    }
+
+    pub(crate) fn queue_line_input_request<T: GlkWindow + Default>(
+        &mut self,
+        winref: &WindowRef<T>,
+        buf: &[u8],
+        initlen: usize,
+    ) {
+        let input = LineInput::Latin1(Vec::from(buf));
+        winref.get_line(input, initlen, self.tx.clone());
     }
 }
 

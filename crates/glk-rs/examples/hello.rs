@@ -1,4 +1,5 @@
 use std::{
+    sync::mpsc::Sender,
     thread,
     time::{Duration, Instant},
 };
@@ -10,6 +11,7 @@ fn main() {
     let win = glk
         .window_open(None, GlkWindowType::TextBuffer, None, 73)
         .unwrap();
+    println!("created window {win:?}");
 
     let winstream = glk.window_get_stream(win).unwrap();
     glk.put_string_stream(winstream, "hello, world!\n");
@@ -19,6 +21,14 @@ fn main() {
         "read = {}, wrote = {}",
         results.read_count, results.write_count
     );
+
+    println!("enter a line of text");
+    let buf = [0u8; 80];
+    glk.request_line_event(win, &buf, 0);
+    match glk.select() {
+        GlkEvent::LineInput { win, buf } => println!("window {win} sent line input event: {buf:?}"),
+        x => panic!("got {x:?} instead of a line input"),
+    }
 
     assert_eq!(glk.select_poll(), GlkEvent::None);
     glk.request_timer_events(1000);
@@ -53,9 +63,16 @@ fn main() {
 }
 
 #[derive(Debug, Default)]
-struct SimpleWindow;
+struct SimpleWindow {
+    winid: GlkWindowID,
+}
 
 impl GlkWindow for SimpleWindow {
+    fn init(&mut self, winid: GlkWindowID) {
+        self.winid = winid;
+        println!("init window {winid}");
+    }
+
     fn get_size(&self) -> GlkWindowSize {
         todo!()
     }
@@ -66,6 +83,27 @@ impl GlkWindow for SimpleWindow {
 
     fn clear(&mut self) {
         todo!()
+    }
+
+    fn get_line(&mut self, event: LineInput, _initlen: usize, tx: Sender<GlkEvent>) {
+        let win = self.winid;
+        println!("get line from {win}");
+        let _ = thread::spawn(move || {
+            match event {
+                LineInput::Latin1(val) => print!(
+                    "{}",
+                    val.iter().map(|byte| *byte as char).collect::<String>()
+                ),
+                LineInput::Unicode(_) => print!("--unicode not handled yet--"),
+            }
+            let mut line = String::new();
+            let _ = std::io::stdin().read_line(&mut line); // <- convert to actual readline
+            println!(">>> read '{line}' <<<");
+            let _ = tx.send(GlkEvent::LineInput {
+                win,
+                buf: LineInput::Latin1(line.into()),
+            });
+        });
     }
 
     fn write_char(&mut self, ch: u8) -> usize {

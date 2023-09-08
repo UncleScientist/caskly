@@ -1,4 +1,7 @@
-use crate::{events::GlkEvent, windows::GlkWindow};
+use crate::{
+    events::GlkEvent,
+    windows::{GlkWindow, GlkWindowID},
+};
 
 use super::Glk;
 
@@ -14,6 +17,20 @@ impl<T: GlkWindow + Default> Glk<T> {
     /// check to see if events are available, and return one. Otherwise return GlkEvent::None
     pub fn select_poll(&mut self) -> GlkEvent {
         self.event_mgr.pop_event()
+    }
+
+    /*
+     * Glk Section 4.2 - Line Input Events
+     */
+
+    /// Request a line of Latin-1 characters from a given window
+    pub fn request_line_event(&mut self, win: GlkWindowID, buf: &[u8], initlen: usize) {
+        let winref = self
+            .win_mgr
+            .get_ref(win)
+            .expect("line input event requested from non-existent window");
+        self.event_mgr
+            .queue_line_input_request(&winref, buf, initlen);
     }
 
     /*
