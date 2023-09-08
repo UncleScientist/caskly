@@ -4,6 +4,53 @@ use std::{
 };
 
 use rglk::prelude::*;
+fn main() {
+    let mut glk = Glk::<SimpleWindow>::new();
+
+    let win = glk
+        .window_open(None, GlkWindowType::TextBuffer, None, 73)
+        .unwrap();
+
+    let winstream = glk.window_get_stream(win).unwrap();
+    glk.put_string_stream(winstream, "hello, world!\n");
+    let results = glk.window_close(win).unwrap();
+
+    println!(
+        "read = {}, wrote = {}",
+        results.read_count, results.write_count
+    );
+
+    assert_eq!(glk.select_poll(), GlkEvent::None);
+    glk.request_timer_events(1000);
+    thread::sleep(Duration::from_millis(1500));
+    glk.request_timer_events(0);
+    assert_eq!(glk.select_poll(), GlkEvent::None);
+
+    glk.request_timer_events(1000);
+    for _ in 0..3 {
+        let event = glk.select();
+        println!("{:?} {:?}", Instant::now(), event);
+    }
+
+    glk.request_timer_events(100_000);
+    thread::sleep(Duration::from_secs(3));
+    assert_eq!(glk.select_poll(), GlkEvent::None);
+
+    glk.request_timer_events(1000);
+    let event = glk.select();
+    println!("{:?} select returned: {:?}", Instant::now(), event);
+
+    println!("{:?} delaying...", Instant::now());
+    thread::sleep(Duration::from_secs(5));
+    println!("{:?} delay finished", Instant::now());
+
+    for _ in 0..5 {
+        let event = glk.select();
+        println!("{:?} {:?}", Instant::now(), event);
+    }
+
+    println!("Done");
+}
 
 #[derive(Debug, Default)]
 struct SimpleWindow;
@@ -43,50 +90,4 @@ impl GlkWindow for SimpleWindow {
     fn write_buffer_uni(&mut self, buf: &[char]) -> usize {
         buf.iter().map(|ch| self.write_char_uni(*ch)).sum()
     }
-}
-
-fn main() {
-    let mut glk = Glk::<SimpleWindow>::new();
-
-    let win = glk
-        .window_open(None, GlkWindowType::TextBuffer, None, 73)
-        .unwrap();
-
-    let winstream = glk.window_get_stream(win).unwrap();
-    glk.put_string_stream(winstream, "hello, world!\n");
-    let results = glk.window_close(win).unwrap();
-
-    println!(
-        "read = {}, wrote = {}",
-        results.read_count, results.write_count
-    );
-
-    println!("{:?}", glk.select());
-
-    assert_eq!(glk.select_poll(), GlkEvent::None);
-    glk.request_timer_events(1000);
-    thread::sleep(Duration::from_millis(1500));
-    glk.request_timer_events(0);
-    assert_eq!(glk.select_poll(), GlkEvent::Timer);
-    assert_eq!(glk.select_poll(), GlkEvent::None);
-
-    glk.request_timer_events(1000);
-    for _ in 0..3 {
-        println!("{:?} {:?}", Instant::now(), glk.select());
-    }
-
-    glk.request_timer_events(100_000);
-    thread::sleep(Duration::from_secs(3));
-    glk.request_timer_events(1000);
-    println!("{:?} select returned: {:?}", Instant::now(), glk.select());
-
-    println!("{:?} delaying...", Instant::now());
-    thread::sleep(Duration::from_secs(5));
-    println!("{:?} delay finished", Instant::now());
-
-    for _ in 0..5 {
-        println!("{:?} {:?}", Instant::now(), glk.select());
-    }
-
-    println!("Done");
 }

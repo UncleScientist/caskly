@@ -1,8 +1,7 @@
 use std::{
     collections::VecDeque,
     sync::mpsc::{self, Receiver, RecvTimeoutError, Sender},
-    thread::{self, JoinHandle},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use crate::{keycode::Keycode, windows::GlkWindowID};
@@ -80,24 +79,20 @@ pub enum GlkEvent {
 
 pub(crate) struct EventManager {
     pending: VecDeque<GlkEvent>,
-    timer_fired: bool,
-    timer_interval: u64,
-    timer_thread: Option<JoinHandle<()>>,
-    timer_update_channel: Option<Sender<u64>>,
-    tx: Sender<GlkEvent>,
+    last_timer_event: Instant,
+    timer_interval: Duration,
+    _tx: Sender<GlkEvent>,
     rx: Receiver<GlkEvent>,
 }
 
 impl Default for EventManager {
     fn default() -> Self {
-        let (tx, rx) = mpsc::channel();
+        let (_tx, rx) = mpsc::channel();
         Self {
             pending: VecDeque::new(),
-            timer_fired: false,
-            timer_interval: 0,
-            timer_thread: None,
-            timer_update_channel: None,
-            tx,
+            last_timer_event: Instant::now(),
+            timer_interval: Duration::from_millis(0),
+            _tx,
             rx,
         }
     }
@@ -106,10 +101,7 @@ impl Default for EventManager {
 impl EventManager {
     fn fill_event_queue(&mut self) {
         while let Ok(event) = self.rx.try_recv() {
-            match event {
-                GlkEvent::Timer => self.timer_fired = true,
-                other => self.pending.push_back(other),
-            }
+            self.pending.push_back(event);
         }
     }
 
@@ -118,19 +110,7 @@ impl EventManager {
     pub(crate) fn pop_event(&mut self) -> GlkEvent {
         self.fill_event_queue();
 
-        if let Some(event) = self.pending.pop_front() {
-            return event;
-        }
-
-        if self.timer_fired {
-            self.timer_fired = false;
-            if let Some(channel) = self.timer_update_channel.as_ref() {
-                let _ = channel.send(self.timer_interval);
-            }
-            return GlkEvent::Timer;
-        }
-
-        GlkEvent::None
+        self.pending.pop_front().unwrap_or(GlkEvent::None)
     }
 
     // This will block until an event is available, and then return it. Should never
@@ -138,67 +118,33 @@ impl EventManager {
     pub(crate) fn block_until_event(&mut self) -> GlkEvent {
         self.fill_event_queue();
 
-        let next_event = match self.pop_event() {
-            GlkEvent::None => {
-                if let Some(channel) = self.timer_update_channel.as_ref() {
-                    let _ = channel.send(self.timer_interval);
-                }
-                self.rx
-                    .recv()
-                    .expect("library bug: should get an event here")
-            }
-            event => event,
-        };
+        let event = self.pop_event();
+        if event != GlkEvent::None {
+            return event;
+        }
 
-        next_event
+        if !self.timer_interval.is_zero() {
+            let now = Instant::now();
+            let timeout = (self.last_timer_event + self.timer_interval) - now;
+            match self.rx.recv_timeout(timeout) {
+                Ok(event) => event,
+                Err(RecvTimeoutError::Timeout) => {
+                    self.last_timer_event = Instant::now();
+                    GlkEvent::Timer
+                }
+                Err(RecvTimeoutError::Disconnected) => {
+                    panic!("library bug: tx disconnected");
+                }
+            }
+        } else {
+            self.rx
+                .recv()
+                .expect("library bug: should have gotten an event")
+        }
     }
 
     pub(crate) fn set_timer(&mut self, ms: u32) {
-        self.timer_interval = ms as u64;
-        if self.timer_thread.is_some() {
-            let _ = self
-                .timer_update_channel
-                .as_ref()
-                .expect("library bug: channel is missing from timer")
-                .send(ms as u64);
-            if ms == 0 {
-                let tt = self
-                    .timer_thread
-                    .take()
-                    .expect("rust bug: rust returned true from is_some()");
-                let _ = tt.join();
-                self.timer_update_channel = None;
-            }
-        } else {
-            let (tx, rx) = mpsc::channel();
-            self.timer_update_channel = Some(tx);
-            let event_queue = self.tx.clone();
-            self.timer_thread = Some(thread::spawn(move || {
-                timer_thread(event_queue, rx, ms as u64)
-            }));
-        }
-    }
-}
-
-fn timer_thread(fire: Sender<GlkEvent>, next: Receiver<u64>, ms: u64) {
-    let mut current_interval = Duration::from_millis(ms);
-    loop {
-        if current_interval.is_zero() {
-            break;
-        }
-
-        match next.recv_timeout(current_interval) {
-            Ok(new_interval) => current_interval = Duration::from_millis(new_interval),
-            Err(RecvTimeoutError::Timeout) => {
-                let _ = fire.send(GlkEvent::Timer);
-                if let Ok(new_time) = next.recv() {
-                    current_interval = Duration::from_millis(new_time);
-                } else {
-                    break;
-                }
-            }
-            Err(RecvTimeoutError::Disconnected) => break,
-        }
+        self.timer_interval = Duration::from_millis(ms as u64);
     }
 }
 
