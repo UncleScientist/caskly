@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::io::{BufReader, Read};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{prelude::GlkRock, GlkFileMode, GlkSeekMode};
@@ -188,11 +189,86 @@ impl GlkStream {
         self.sh.borrow().get_echo_stream()
     }
 
-    // internal helper functions
+    /*
+     * internal helper functions
+     */
+
+    // Encode a unicode character into a stream of bytes
     pub(crate) fn char_to_bytestream(ch: char) -> Vec<u8> {
         let mut bytes = [0u8; 4];
         let len = ch.encode_utf8(&mut bytes).len();
         Vec::from_iter(bytes[0..len].iter().copied())
+    }
+
+    // Decode a stream of bytes into a unicode character
+    // Stolen shamelessly from https://github.com/erkyrath/cheapglk/blob/master/cgunicod.c
+    pub(crate) fn bytestream_to_char<R: ?Sized + Read>(buf: &mut BufReader<R>) -> Option<char> {
+        let val0 = GlkStream::read_byte_from_bufreader(buf)?;
+
+        if val0 < 0x80 {
+            return Some(val0 as char);
+        }
+
+        if (val0 & 0xe0) == 0xc0 {
+            let val1 = GlkStream::read_byte_from_bufreader(buf)?;
+            if (val1 & 0xc0) != 0x80 {
+                return None;
+            }
+            let result = ((val0 as u32 & 0x1f) << 6) | (val1 as u32 & 0x3f);
+            let result = char::from_u32(result);
+            return result;
+        }
+
+        if (val0 & 0xf0) == 0xe0 {
+            let val1 = GlkStream::read_byte_from_bufreader(buf)?;
+            let val2 = GlkStream::read_byte_from_bufreader(buf)?;
+
+            if (val1 & 0xc0) != 0x80 {
+                return None;
+            }
+            if (val2 & 0xc0) != 0x80 {
+                return None;
+            }
+
+            let result = ((val0 as u32 & 0xf) << 12) & 0xf000;
+            let result = result | ((val1 as u32 & 0x3f) << 6) & 0xfc0;
+            let result = result | (val2 as u32 & 0x3f);
+            let result = char::from_u32(result);
+            return result;
+        }
+
+        if (val0 & 0xf0) == 0xf0 {
+            let val1 = GlkStream::read_byte_from_bufreader(buf)?;
+            let val2 = GlkStream::read_byte_from_bufreader(buf)?;
+            let val3 = GlkStream::read_byte_from_bufreader(buf)?;
+
+            if (val1 & 0xc0) != 0x80 {
+                return None;
+            }
+            if (val2 & 0xc0) != 0x80 {
+                return None;
+            }
+            if (val3 & 0xc0) != 0x80 {
+                return None;
+            }
+
+            let result = ((val0 as u32 & 0x7) << 18) & 0x1c0000;
+            let result = result | ((val1 as u32 & 0x3f) << 12) & 0x3f000;
+            let result = result | ((val2 as u32 & 0x3f) << 6) & 0xfc0;
+            let result = result | (val3 as u32 & 0x3f);
+            let result = char::from_u32(result);
+            return result;
+        }
+
+        None
+    }
+
+    fn read_byte_from_bufreader<R: ?Sized + Read>(buf: &mut BufReader<R>) -> Option<u8> {
+        let mut input = [0u8];
+        if buf.read(&mut input).ok()? == 0 {
+            return None;
+        }
+        Some(input[0])
     }
 }
 

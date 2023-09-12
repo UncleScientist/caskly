@@ -244,7 +244,7 @@ impl GlkStreamHandler for FileStream {
     }
 
     fn get_char_uni(&mut self) -> Option<char> {
-        todo!()
+        GlkStream::bytestream_to_char(self.get_bufreader())
     }
 
     fn get_buffer_uni(&mut self, _maxlen: Option<usize>) -> String {

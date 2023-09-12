@@ -597,7 +597,7 @@ mod test {
     }
 
     #[test]
-    fn can_write_utf8_characters() {
+    fn can_read_and_write_utf8_characters() {
         let tmpfile = format!("{}/utf8_file.txt", get_tmpdir());
         let mut glk = Glk::<GlkTestWindow>::new();
 
@@ -608,22 +608,41 @@ mod test {
             .stream_open_file(fileref, GlkFileMode::Write, 24)
             .unwrap();
 
+        glk.put_string_stream(stream, "some ascii text...");
+
+        // two-byte unicode
+        let sset = 'ß';
+        glk.put_char_stream_uni(stream, sset);
+
+        // three-byte unicode
+        let horns = 'ࢠ';
+        glk.put_char_stream_uni(stream, horns);
+
         let flower = '🌸';
         glk.put_char_stream_uni(stream, flower);
 
-        let sset = 'ß';
-        glk.put_char_stream_uni(stream, sset);
+        glk.put_string_stream(stream, "some trailing text?");
         glk.stream_close(stream);
 
-        /*
-         * TODO: learn how to incrementally read utf8 characters from a file!
         let stream = glk
-            .stream_open_file(fileref, GlkFileMode::Read, 24)
+            .stream_open_file(fileref, GlkFileMode::Read, 25)
             .unwrap();
-        let ch = glk.get_char_stream_uni(stream).unwrap();
-        glk.stream_close(stream);
 
-        assert_eq!(ch, flower);
-        */
+        for _ in 0..18 {
+            let _ = glk.get_char_stream_uni(stream);
+        }
+
+        let input = glk.get_char_stream_uni(stream).unwrap();
+        assert_eq!(input, sset);
+
+        let input = glk.get_char_stream_uni(stream).unwrap();
+        assert_eq!(input, horns);
+
+        let input = glk.get_char_stream_uni(stream).unwrap();
+        assert_eq!(input, flower);
+
+        // TODO: read a string from a file
+        // let input = glk.get_buffer_stream_uni(stream, None);
+        // assert_eq!(input, "some trailing text?".to_string());
     }
 }
