@@ -291,7 +291,7 @@ impl<T: GlkWindow + Default> WindowManager<T> {
     }
 
     pub(crate) fn close(&mut self, win: GlkWindowID) -> Option<()> {
-        let winref = self.windows.get(&win)?;
+        let winref = self.windows.remove(&win)?;
         winref.close_window();
         Some(())
     }

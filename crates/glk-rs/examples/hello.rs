@@ -27,6 +27,11 @@ fn main() {
     assert_eq!(glk.select_poll(), GlkEvent::Timer);
     glk.request_timer_events(0);
 
+    let win = glk
+        .window_open(None, GlkWindowType::TextBuffer, None, 73)
+        .unwrap();
+    println!("created window {win:?}");
+
     println!("enter a line of text");
     let buf = [0u32; 80];
     glk.request_line_event_uni(win, &buf, 0);
