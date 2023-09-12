@@ -28,8 +28,8 @@ fn main() {
     glk.request_timer_events(0);
 
     println!("enter a line of text");
-    let buf = [0u8; 80];
-    glk.request_line_event(win, &buf, 0);
+    let buf = [0u32; 80];
+    glk.request_line_event_uni(win, &buf, 0);
     match glk.select() {
         GlkEvent::LineInput { win, buf } => println!("window {win} sent line input event: {buf:?}"),
         x => panic!("got {x:?} instead of a line input"),
@@ -95,19 +95,37 @@ impl GlkWindow for SimpleWindow {
         let win = self.winid;
         println!("get line from {win}");
         let _ = thread::spawn(move || {
-            match event {
-                LineInput::Latin1(val) => print!(
-                    "{}",
-                    val.iter().map(|byte| *byte as char).collect::<String>()
-                ),
-                LineInput::Unicode(_) => print!("--unicode not handled yet--"),
-            }
+            let is_latin1 = match event {
+                LineInput::Latin1(val) => {
+                    println!(
+                        "{}",
+                        val.iter().map(|byte| *byte as char).collect::<String>()
+                    );
+                    true
+                }
+                LineInput::Unicode(val) => {
+                    println!(
+                        "{}",
+                        val.iter()
+                            .map(|long| char::from_u32(*long).unwrap())
+                            .collect::<String>()
+                    );
+                    false
+                }
+            };
             let mut line = String::new();
             let _ = std::io::stdin().read_line(&mut line); // <- convert to actual readline
             println!(">>> read '{line}' <<<");
-            let _ = tx.send(GlkEvent::LineInput {
-                win,
-                buf: LineInput::Latin1(line.into()),
+            let _ = tx.send(if is_latin1 {
+                GlkEvent::LineInput {
+                    win,
+                    buf: LineInput::Latin1(line.into()),
+                }
+            } else {
+                GlkEvent::LineInput {
+                    win,
+                    buf: LineInput::Unicode(line.chars().map(|ch| ch as u32).collect::<Vec<_>>()),
+                }
             });
         });
     }

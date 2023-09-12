@@ -33,6 +33,16 @@ impl<T: GlkWindow + Default> Glk<T> {
             .queue_line_input_request(&winref, buf, initlen);
     }
 
+    /// request a line of unicode codepoint from a given window
+    pub fn request_line_event_uni(&mut self, win: GlkWindowID, buf: &[u32], initlen: usize) {
+        let winref = self
+            .win_mgr
+            .get_ref(win)
+            .expect("line input event requested from non-existent window");
+        self.event_mgr
+            .queue_line_input_uni_request(&winref, buf, initlen);
+    }
+
     /*
      * Glk Section 4.4 - Timer Events
      */

@@ -181,6 +181,16 @@ impl EventManager {
         let input = LineInput::Latin1(Vec::from(buf));
         winref.get_line(input, initlen, self.tx.clone());
     }
+
+    pub(crate) fn queue_line_input_uni_request<T: GlkWindow + Default>(
+        &mut self,
+        winref: &WindowRef<T>,
+        buf: &[u32],
+        initlen: usize,
+    ) {
+        let input = LineInput::Unicode(Vec::from(buf));
+        winref.get_line(input, initlen, self.tx.clone());
+    }
 }
 
 #[cfg(test)]
