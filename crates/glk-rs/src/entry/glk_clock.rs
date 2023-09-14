@@ -1,13 +1,27 @@
 use std::time::SystemTime;
 
+use chrono::{DateTime, Datelike, NaiveDateTime, Timelike, Utc};
+
 use crate::windows::GlkWindow;
 
 use super::Glk;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct GlkTimeval {
     pub sec: i64,
-    pub microsec: i32,
+    pub microsec: u32,
+}
+
+#[derive(Debug, Default)]
+pub struct GlkDate {
+    pub year: i32,
+    pub month: i32,
+    pub day: i32,
+    pub weekday: i32,
+    pub hour: i32,
+    pub minute: i32,
+    pub second: i32,
+    pub microsec: u32,
 }
 
 impl<T: GlkWindow + Default> Glk<T> {
@@ -20,12 +34,33 @@ impl<T: GlkWindow + Default> Glk<T> {
         match now {
             Ok(time) => GlkTimeval {
                 sec: time.as_secs() as i64,
-                microsec: time.subsec_micros() as i32,
+                microsec: time.subsec_micros(),
             },
             Err(_) => GlkTimeval {
                 sec: 0,
                 microsec: 0,
             },
+        }
+    }
+
+    /*
+     * Glk Section 10.1 - Time and Date Conversions
+     */
+    /// Convert a given timestamp to a UTC GlkDate
+    pub fn time_to_date_utc(&self, time: &GlkTimeval) -> GlkDate {
+        let Some(naive) = NaiveDateTime::from_timestamp_opt(time.sec, time.microsec * 1000) else {
+            return GlkDate::default();
+        };
+        let datetime: DateTime<Utc> = DateTime::from_naive_utc_and_offset(naive, Utc);
+        GlkDate {
+            year: datetime.year(),
+            month: datetime.month() as i32,
+            day: datetime.day() as i32,
+            weekday: datetime.weekday().num_days_from_sunday() as i32,
+            hour: datetime.hour() as i32,
+            minute: datetime.minute() as i32,
+            second: datetime.second() as i32,
+            microsec: time.microsec,
         }
     }
 }

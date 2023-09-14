@@ -2,7 +2,11 @@ use rglk::prelude::*;
 
 fn main() {
     let glk = Glk::<UnimplementedWindow>::new();
-    println!("{:?}", glk.current_time());
+    let now = glk.current_time();
+    println!("now = {now:?}");
+
+    let utc = glk.time_to_date_utc(&now);
+    println!("utc = {utc:?}");
 }
 
 #[derive(Default)]
