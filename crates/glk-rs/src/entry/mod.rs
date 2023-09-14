@@ -1,3 +1,4 @@
+mod glk_clock;
 mod glk_event;
 mod glk_stream;
 mod glk_win;
