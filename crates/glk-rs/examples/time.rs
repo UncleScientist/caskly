@@ -10,6 +10,12 @@ fn main() {
 
     let local = glk.time_to_date_local(&now);
     println!("local = {local:?}");
+
+    let simple = glk.current_simple_time(1);
+    println!("simple, factor  1: {simple}");
+
+    let simple = glk.current_simple_time(60);
+    println!("simple, factor 60: {simple}");
 }
 
 #[derive(Default)]

@@ -28,19 +28,23 @@ impl<T: GlkWindow + Default> Glk<T> {
     /*
      * Glk Section 10 - The System Clock
      */
-    /// Gets the current system time in seconds since 1970
+    /// Gets the current system time in seconds and microseconds since 1970
     pub fn current_time(&self) -> GlkTimeval {
-        let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH);
-        match now {
-            Ok(time) => GlkTimeval {
-                sec: time.as_secs() as i64,
-                microsec: time.subsec_micros(),
-            },
-            Err(_) => GlkTimeval {
-                sec: 0,
-                microsec: 0,
-            },
+        let Ok(time) = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) else {
+            return GlkTimeval::default();
+        };
+        GlkTimeval {
+            sec: time.as_secs() as i64,
+            microsec: time.subsec_micros(),
         }
+    }
+
+    /// Gets the current system time scaled down by a factor
+    pub fn current_simple_time(&self, factor: u32) -> i32 {
+        let Ok(time) = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) else {
+            return 0;
+        };
+        (time.as_secs() / factor as u64) as i32
     }
 
     /*
