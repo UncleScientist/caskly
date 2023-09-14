@@ -68,6 +68,27 @@ impl<T: GlkWindow + Default> Glk<T> {
         let datetime: DateTime<Local> = DateTime::from_naive_utc_and_offset(naive, local);
         build_glk_date(datetime, time.microsec)
     }
+
+    /// Convert a simple time multiplied by a factor to a UTC GlkDate
+    pub fn simple_time_to_date_utc(&self, time: i32, factor: u32) -> GlkDate {
+        let Some(naive) = NaiveDateTime::from_timestamp_opt((time * factor as i32) as i64, 0)
+        else {
+            return GlkDate::default();
+        };
+        let datetime: DateTime<Utc> = DateTime::from_naive_utc_and_offset(naive, Utc);
+        build_glk_date(datetime, 0)
+    }
+
+    /// Convert a simple time multiplied by a factor to a Local GlkDate
+    pub fn simple_time_to_date_local(&self, time: i32, factor: u32) -> GlkDate {
+        let Some(naive) = NaiveDateTime::from_timestamp_opt((time * factor as i32) as i64, 0)
+        else {
+            return GlkDate::default();
+        };
+        let local = Local::now().offset().clone();
+        let datetime: DateTime<Local> = DateTime::from_naive_utc_and_offset(naive, local);
+        build_glk_date(datetime, 0)
+    }
 }
 
 fn build_glk_date<T: TimeZone>(datetime: DateTime<T>, microsec: u32) -> GlkDate {

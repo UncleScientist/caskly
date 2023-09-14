@@ -12,10 +12,26 @@ fn main() {
     println!("local = {local:?}");
 
     let simple = glk.current_simple_time(1);
-    println!("simple, factor  1: {simple}");
+    println!("simple, factor 1: {simple}");
+    println!(
+        "                : {:?}",
+        glk.simple_time_to_date_utc(simple, 1)
+    );
+    println!(
+        "                : {:?}",
+        glk.simple_time_to_date_local(simple, 1)
+    );
 
-    let simple = glk.current_simple_time(60);
-    println!("simple, factor 60: {simple}");
+    let simple = glk.current_simple_time(3600);
+    println!("simple, factor 3600: {simple}");
+    println!(
+        "                : {:?}",
+        glk.simple_time_to_date_utc(simple, 3600)
+    );
+    println!(
+        "                : {:?}",
+        glk.simple_time_to_date_local(simple, 3600)
+    );
 }
 
 #[derive(Default)]
