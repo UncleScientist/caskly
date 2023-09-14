@@ -64,7 +64,7 @@ impl<T: GlkWindow + Default> Glk<T> {
         let Some(naive) = NaiveDateTime::from_timestamp_opt(time.sec, time.microsec * 1000) else {
             return GlkDate::default();
         };
-        let local = Local::now().offset().clone();
+        let local = *Local::now().offset();
         let datetime: DateTime<Local> = DateTime::from_naive_utc_and_offset(naive, local);
         build_glk_date(datetime, time.microsec)
     }
@@ -85,7 +85,7 @@ impl<T: GlkWindow + Default> Glk<T> {
         else {
             return GlkDate::default();
         };
-        let local = Local::now().offset().clone();
+        let local = *Local::now().offset();
         let datetime: DateTime<Local> = DateTime::from_naive_utc_and_offset(naive, local);
         build_glk_date(datetime, 0)
     }
