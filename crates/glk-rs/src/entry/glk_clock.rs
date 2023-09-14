@@ -1,6 +1,6 @@
 use std::time::SystemTime;
 
-use chrono::{DateTime, Datelike, NaiveDateTime, Timelike, Utc};
+use chrono::{DateTime, Datelike, Local, NaiveDateTime, TimeZone, Timelike, Utc};
 
 use crate::windows::GlkWindow;
 
@@ -52,15 +52,29 @@ impl<T: GlkWindow + Default> Glk<T> {
             return GlkDate::default();
         };
         let datetime: DateTime<Utc> = DateTime::from_naive_utc_and_offset(naive, Utc);
-        GlkDate {
-            year: datetime.year(),
-            month: datetime.month() as i32,
-            day: datetime.day() as i32,
-            weekday: datetime.weekday().num_days_from_sunday() as i32,
-            hour: datetime.hour() as i32,
-            minute: datetime.minute() as i32,
-            second: datetime.second() as i32,
-            microsec: time.microsec,
-        }
+        build_glk_date(datetime, time.microsec)
+    }
+
+    /// Convert a given timestamp to a Local GlkDate
+    pub fn time_to_date_local(&self, time: &GlkTimeval) -> GlkDate {
+        let Some(naive) = NaiveDateTime::from_timestamp_opt(time.sec, time.microsec * 1000) else {
+            return GlkDate::default();
+        };
+        let local = Local::now().offset().clone();
+        let datetime: DateTime<Local> = DateTime::from_naive_utc_and_offset(naive, local);
+        build_glk_date(datetime, time.microsec)
+    }
+}
+
+fn build_glk_date<T: TimeZone>(datetime: DateTime<T>, microsec: u32) -> GlkDate {
+    GlkDate {
+        year: datetime.year(),
+        month: datetime.month() as i32,
+        day: datetime.day() as i32,
+        weekday: datetime.weekday().num_days_from_sunday() as i32,
+        hour: datetime.hour() as i32,
+        minute: datetime.minute() as i32,
+        second: datetime.second() as i32,
+        microsec,
     }
 }

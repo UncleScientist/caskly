@@ -7,6 +7,9 @@ fn main() {
 
     let utc = glk.time_to_date_utc(&now);
     println!("utc = {utc:?}");
+
+    let local = glk.time_to_date_local(&now);
+    println!("local = {local:?}");
 }
 
 #[derive(Default)]
