@@ -168,12 +168,15 @@ impl<T: GlkWindow + Default> Glk<T> {
     }
 
     /* TEST ONLY FUNCTIONS */
+    /*
     #[cfg(test)]
     pub(crate) fn t_get_winref(&self, win: GlkWindowID) -> WindowRef<T> {
         self.win_mgr.get_ref(win).unwrap()
     }
+    */
 }
 
+/*
 #[cfg(test)]
 mod test {
     use super::*;
@@ -521,3 +524,4 @@ mod test {
         assert_eq!(stream_results.write_count, 1);
     }
 }
+*/

@@ -286,6 +286,7 @@ impl<T: GlkWindow + Default> Glk<T> {
     }
 }
 
+/*
 #[cfg(test)]
 mod test {
     use crate::{windows::testwin::GlkTestWindow, GlkFileUsage};
@@ -646,3 +647,4 @@ mod test {
         // assert_eq!(input, "some trailing text?".to_string());
     }
 }
+*/

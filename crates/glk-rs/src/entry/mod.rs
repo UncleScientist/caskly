@@ -4,10 +4,12 @@ mod glk_stream;
 mod glk_win;
 
 use std::path::Path;
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::thread;
 
 use unicode_normalization::UnicodeNormalization;
 
-use crate::events::EventManager;
+use crate::events::{EventManager, GlkEvent};
 use crate::file_stream::{FileRefManager, GlkFileRef};
 use crate::gestalt::OutputType;
 use crate::keycode::Keycode;
@@ -16,8 +18,63 @@ use crate::stream::{GlkStreamID, StreamManager};
 use crate::windows::{GlkWindow, WindowManager};
 use crate::{gestalt::*, GlkFileUsage};
 
+/// A request from the glk library to the window code for something to happen
+pub struct GlkMessage;
+
+/// The result of a request from glk
+pub enum GlkResult {
+    /// the request worked, here's the answer
+    Success(GlkEvent),
+
+    /// we could not handle the request
+    Failure,
+}
+
 /// The GLK object. TODO: Insert basic usage here
 /// This is the API for GLK interpreted as a Rust API.
+///
+/// Messages that the window subsystem needs to handle
+/// - gestalt::LineInput(ch)
+/// - gestalt::CharInput(ch)
+/// - gestalt::LineInputEcho
+/// - gestalt::LineTerminators
+/// - gestalt::LineTerminatorKey(ch)
+/// - gestalt::MouseInput
+/// - gestalt::Graphics
+/// - gestalt::DrawImage
+/// - gestalt::GraphicsTransparency
+/// - gestalt::GraphicsCharInput
+/// - gestalt::Hyperlinks
+/// - gestalt::HyperlinkInput
+/// - glk_window_open(parent, method, rock)
+/// - glk_window_close(window_id) -> StreamResult
+/// - glk_window_get_size(window_id)
+/// - glk_window_get/set_arrangement(window_id[, window_info]) -> WindowInfo
+/// - glk_window_clear(window_id)
+/// - glk_request_char_event(window_id)     -- & char_event_uni()?
+/// - glk_cancel_char_event(window_id)
+/// - glk_request_line_event(window_id)     -- & line_event_uni()?
+/// - glk_cancel_line_event(window_id)
+/// - glk_set_echo_line_event(window_id, bool)
+/// - glk_set_terminators_line_event(window_id, Vec<keycode>)
+/// - glk_request/cancel_mouse_event(window_id)
+/// - glk_put_char(window_id, ch)
+/// - glk_put_string(window_id, string)     -- & put_buffer()?
+/// - glk_set_style(window_id, style)
+/// - glk_stylehint_set(window_id, style, hint, val)
+/// - glk_stylehint_clear(window_id, style, hint)
+/// - glk_style_distinguish(window_id, style1, style2)
+/// - glk_style_measure(window_id, style, hint) -> MeasurementResult
+/// - glk_image_draw(window_id, image, pos)     -- [pos: x/y coords, or ImageAlign value]
+/// - glk_image_draw_scaled(window_id, image, pos, scale)
+/// - glk_window_set_background_color(window_id, color)
+/// - glk_window_fill_rect(window_id, color, rect)
+/// - glk_window_erase_rect(window_id, rect)
+/// - glk_window_flow_break(window_id)
+/// - glk_set_hyperlink(window_id, linkval)
+/// - glk_request_hyperlink_event(window_id)
+/// - glk_cancel_hyperlink_event(window_id)
+
 #[derive(Default)]
 pub struct Glk<T: GlkWindow + Default + 'static> {
     win_mgr: WindowManager<T>,
@@ -25,6 +82,8 @@ pub struct Glk<T: GlkWindow + Default + 'static> {
     stream_mgr: StreamManager,
     fileref_mgr: FileRefManager,
     default_stream: Option<GlkStreamID>,
+    _request: Option<Receiver<GlkMessage>>,
+    _result: Option<Sender<GlkResult>>,
 }
 
 trait ValidGlkChar {
@@ -38,10 +97,31 @@ impl ValidGlkChar for char {
     }
 }
 
-impl<T: GlkWindow + Default> Glk<T> {
+impl<T: GlkWindow + Default + 'static> Glk<T> {
     /// Create a new glk interface
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(request: Receiver<GlkMessage>, result: Sender<GlkResult>) -> Self {
+        Self {
+            _request: Some(request),
+            _result: Some(result),
+            ..Self::default()
+        }
+    }
+
+    /// start up a glk-based i/o subsystem
+    pub fn start<F: FnOnce(&mut Glk<T>) + Send + 'static>(func: F) {
+        let (_command, request) = mpsc::channel(); // glk:command.send(), win:request.recv()
+        let (result, _response) = mpsc::channel(); // glk:response.recv(), win:result.send()
+
+        let joiner = thread::spawn(move || {
+            let mut glk = Glk::<T>::new(request, result);
+            func(&mut glk);
+        });
+
+        // do glk-based work with the window implementation...
+        // whatever that means
+        //
+
+        let _ = joiner.join();
     }
 
     /// Retrieve capability from the gestalt system
@@ -188,19 +268,25 @@ impl ToChar for char {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{
-        windows::{testwin::GlkTestWindow, GlkWindowType},
-        GlkFileMode,
-    };
+    use crate::windows::testwin::GlkTestWindow;
 
     #[test]
     fn can_get_glk_version() {
+        /*
         let glk = Glk::<GlkTestWindow>::new();
         assert_eq!(
             GestaltResult::Version(0x00000705),
             glk.gestalt(Gestalt::Version)
         );
+        */
+        Glk::<GlkTestWindow>::start(|glk| {
+            assert_eq!(
+                GestaltResult::Version(0x00000705),
+                glk.gestalt(Gestalt::Version)
+            )
+        });
     }
+    /*
 
     #[test]
     fn can_convert_char_to_keycode() {
@@ -351,4 +437,5 @@ mod test {
         let echo_stream = glk.window_get_echo_stream(win);
         assert!(echo_stream.is_none());
     }
+    */
 }

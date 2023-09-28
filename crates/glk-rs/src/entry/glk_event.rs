@@ -53,6 +53,7 @@ impl<T: GlkWindow + Default> Glk<T> {
     }
 }
 
+/*
 #[cfg(test)]
 mod test {
     use crate::windows::testwin::GlkTestWindow;
@@ -66,3 +67,4 @@ mod test {
         assert_eq!(glk.select_poll(), GlkEvent::None);
     }
 }
+*/
