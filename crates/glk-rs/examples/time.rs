@@ -1,4 +1,9 @@
-use rglk::prelude::*;
+use std::sync::mpsc::{Receiver, Sender};
+
+use rglk::{
+    entry::{GlkMessage, GlkResult},
+    prelude::*,
+};
 
 fn main() {
     Glk::<UnimplementedWindow>::start(|glk| {
@@ -36,8 +41,24 @@ fn main() {
 }
 
 #[derive(Default)]
-struct UnimplementedWindow;
+struct UnimplementedWindow {
+    request: Option<Receiver<GlkMessage>>,
+    result: Option<Sender<GlkResult>>,
+}
+
 impl GlkWindow for UnimplementedWindow {
+    fn new(request: Receiver<GlkMessage>, result: Sender<GlkResult>) -> Self {
+        Self {
+            request: Some(request),
+            result: Some(result),
+        }
+    }
+
+    fn run(&mut self) {
+        while let Ok(_message) = self.request.as_ref().unwrap().recv() {
+            let _ = self.result.as_ref().unwrap().send(GlkResult::Result(0));
+        }
+    }
     fn init(&mut self, _winid: GlkWindowID) {
         todo!()
     }

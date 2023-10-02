@@ -32,9 +32,16 @@ impl<T: GlkWindow + Default> Glk<T> {
         };
 
         let new_win = if let Some(parent) = parent {
-            self.win_mgr.split(parent, method, wintype, rock)
+            self.win_mgr.split(
+                parent,
+                method,
+                wintype,
+                self.command.as_ref().unwrap().clone(),
+                rock,
+            )
         } else {
-            self.win_mgr.open_window(wintype, rock)
+            self.win_mgr
+                .open_window(wintype, self.command.as_ref().unwrap().clone(), rock)
         }?;
 
         let win = Rc::new(RefCell::new(self.win_mgr.get_window(new_win)?));

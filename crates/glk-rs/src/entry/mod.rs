@@ -15,19 +15,28 @@ use crate::gestalt::OutputType;
 use crate::keycode::Keycode;
 use crate::prelude::GlkRock;
 use crate::stream::{GlkStreamID, StreamManager};
-use crate::windows::{GlkWindow, WindowManager};
+use crate::windows::{GlkWindow, GlkWindowID, WindowManager};
 use crate::{gestalt::*, GlkFileUsage};
 
 /// A request from the glk library to the window code for something to happen
-pub struct GlkMessage;
+pub enum GlkMessage {
+    /// write a string to a stdio stream or window
+    Write {
+        /// winid: the window to write to
+        winid: GlkWindowID,
+        /// message: the message to write to the window
+        message: String,
+    },
+}
 
 /// The result of a request from glk
+#[derive(Debug)]
 pub enum GlkResult {
     /// the request worked, here's the answer
     Success(GlkEvent),
 
-    /// we could not handle the request
-    Failure,
+    /// how many characters were written to output
+    Result(usize),
 }
 
 /// The GLK object. TODO: Insert basic usage here
@@ -82,8 +91,8 @@ pub struct Glk<T: GlkWindow + Default + 'static> {
     stream_mgr: StreamManager,
     fileref_mgr: FileRefManager,
     default_stream: Option<GlkStreamID>,
-    _request: Option<Receiver<GlkMessage>>,
-    _result: Option<Sender<GlkResult>>,
+    command: Option<Sender<GlkMessage>>,
+    response: Option<Receiver<GlkResult>>,
 }
 
 trait ValidGlkChar {
@@ -99,27 +108,26 @@ impl ValidGlkChar for char {
 
 impl<T: GlkWindow + Default + 'static> Glk<T> {
     /// Create a new glk interface
-    pub fn new(request: Receiver<GlkMessage>, result: Sender<GlkResult>) -> Self {
+    pub fn new(command: Sender<GlkMessage>, response: Receiver<GlkResult>) -> Self {
         Self {
-            _request: Some(request),
-            _result: Some(result),
+            command: Some(command),
+            response: Some(response),
             ..Self::default()
         }
     }
 
     /// start up a glk-based i/o subsystem
     pub fn start<F: FnOnce(&mut Glk<T>) + Send + 'static>(func: F) {
-        let (_command, request) = mpsc::channel(); // glk:command.send(), win:request.recv()
-        let (result, _response) = mpsc::channel(); // glk:response.recv(), win:result.send()
+        let (command, request) = mpsc::channel(); // glk:command.send(), win:request.recv()
+        let (result, response) = mpsc::channel(); // glk:response.recv(), win:result.send()
 
         let joiner = thread::spawn(move || {
-            let mut glk = Glk::<T>::new(request, result);
+            let mut glk = Glk::<T>::new(command, response);
             func(&mut glk);
         });
 
-        // do glk-based work with the window implementation...
-        // whatever that means
-        //
+        let mut window_system = T::new(request, result);
+        window_system.run();
 
         let _ = joiner.join();
     }

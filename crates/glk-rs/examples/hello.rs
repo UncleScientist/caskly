@@ -1,10 +1,13 @@
 use std::{
-    sync::mpsc::Sender,
+    sync::mpsc::{Receiver, Sender},
     thread,
     time::{Duration, Instant},
 };
 
-use rglk::prelude::*;
+use rglk::{
+    entry::{GlkMessage, GlkResult},
+    prelude::*,
+};
 
 fn main() {
     Glk::<SimpleWindow>::start(|glk| {
@@ -15,6 +18,8 @@ fn main() {
 
         let winstream = glk.window_get_stream(win).unwrap();
         glk.put_string_stream(winstream, "hello, world!\n");
+        glk.put_char_stream(winstream, '%' as u8);
+        glk.put_string_stream(winstream, "\n");
         let results = glk.window_close(win).unwrap();
 
         println!(
@@ -81,9 +86,31 @@ fn main() {
 #[derive(Debug, Default)]
 struct SimpleWindow {
     winid: GlkWindowID,
+    request: Option<Receiver<GlkMessage>>,
+    result: Option<Sender<GlkResult>>,
 }
 
 impl GlkWindow for SimpleWindow {
+    fn new(request: Receiver<GlkMessage>, result: Sender<GlkResult>) -> Self {
+        Self {
+            request: Some(request),
+            result: Some(result),
+            winid: 0,
+        }
+    }
+
+    fn run(&mut self) {
+        while let Ok(message) = self.request.as_ref().unwrap().recv() {
+            let len = match message {
+                GlkMessage::Write { winid, message } => {
+                    println!("[Window {winid}]: {message}");
+                    message.len()
+                }
+            };
+            let _ = self.result.as_ref().unwrap().send(GlkResult::Result(len));
+        }
+    }
+
     fn init(&mut self, winid: GlkWindowID) {
         self.winid = winid;
         println!("init window {winid}");

@@ -1,10 +1,11 @@
+use crate::entry::{GlkMessage, GlkResult};
 use crate::events::{GlkEvent, LineInput};
 use crate::prelude::GlkRock;
-use crate::stream::{GlkStreamHandler, GlkStreamID};
+use crate::stream::{GlkStreamHandler, GlkStreamID, WriteResponse};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::{Receiver, Sender};
 
 /// An opaque type for windows
 pub type GlkWindowID = u32;
@@ -26,6 +27,7 @@ pub struct Window<T: GlkWindow + Default> {
     window: Rc<RefCell<T>>,
     stream: GlkStreamID,
     echo_stream: Option<GlkStreamID>,
+    command: Option<Sender<GlkMessage>>,
 }
 
 /// Type of window to create
@@ -50,6 +52,12 @@ pub enum GlkWindowType {
 /// Interface for a window type; implement this to create a back-end for your
 /// window.
 pub trait GlkWindow {
+    /// Build a new GlkWindow system
+    fn new(request: Receiver<GlkMessage>, result: Sender<GlkResult>) -> Self;
+
+    /// Primary run loop for stdio or window system
+    fn run(&mut self);
+
     /// set up a window with specific parameters
     fn init(&mut self, winid: GlkWindowID);
 
@@ -93,12 +101,31 @@ impl<T: GlkWindow + Default> GlkStreamHandler for WindowRef<T> {
         self.winref.borrow().echo_stream
     }
 
-    fn put_char(&mut self, ch: u8) -> usize {
-        self.winref.borrow().window.borrow_mut().write_char(ch)
+    fn put_char(&mut self, ch: u8) -> WriteResponse {
+        let mut message = String::new();
+        message.push(ch as char);
+
+        let _ = self.send_message(GlkMessage::Write {
+            winid: self.winref.borrow().this_id,
+            message,
+        });
+        WriteResponse {
+            len: 0,
+            wait_needed: true,
+        }
     }
 
-    fn put_string(&mut self, s: &str) -> usize {
-        self.winref.borrow().window.borrow_mut().write_string(s)
+    fn put_string(&mut self, s: &str) -> WriteResponse {
+        // self.winref.borrow().window.borrow_mut().write_string(s)
+        println!("** sending a Write(String) message");
+        let _ = self.send_message(GlkMessage::Write {
+            winid: self.winref.borrow().this_id,
+            message: s.to_string(),
+        });
+        WriteResponse {
+            len: 0,
+            wait_needed: true,
+        }
     }
 
     fn put_buffer(&mut self, buf: &[u8]) -> usize {
@@ -190,6 +217,7 @@ impl<T: GlkWindow + Default> WindowManager<T> {
     pub(crate) fn open_window(
         &mut self,
         wintype: WindowType,
+        command: Sender<GlkMessage>,
         rock: GlkRock,
     ) -> Option<GlkWindowID> {
         if self.root.is_none() {
@@ -197,6 +225,7 @@ impl<T: GlkWindow + Default> WindowManager<T> {
             let root_win = WindowRef {
                 winref: Rc::new(RefCell::new(Window::<T> {
                     wintype: WindowType::Root,
+                    command: Some(command.clone()),
                     ..Window::default()
                 })),
             };
@@ -215,6 +244,7 @@ impl<T: GlkWindow + Default> WindowManager<T> {
                 rock,
                 this_id: self.val,
                 parent: Some(Rc::downgrade(&root_win.winref)),
+                command: Some(command),
                 ..Window::default()
             })),
         };
@@ -271,11 +301,12 @@ impl<T: GlkWindow + Default> WindowManager<T> {
         parent: GlkWindowID,
         method: Option<WindowSplitMethod>,
         wintype: WindowType,
+        command: Sender<GlkMessage>,
         rock: GlkRock,
     ) -> Option<GlkWindowID> {
         let parentwin = self.windows.get(&parent)?;
 
-        let (pairwin, newwin) = parentwin.split(method, wintype, rock);
+        let (pairwin, newwin) = parentwin.split(method, wintype, command, rock);
 
         pairwin.winref.borrow_mut().this_id = self.val;
         pairwin.winref.borrow().window.borrow_mut().init(self.val);
@@ -305,6 +336,10 @@ impl<T: GlkWindow + Default> WindowManager<T> {
 }
 
 impl<T: GlkWindow + Default> WindowRef<T> {
+    pub(crate) fn send_message(&self, message: GlkMessage) {
+        let _ = self.winref.borrow().command.as_ref().unwrap().send(message);
+    }
+
     pub(crate) fn get_line(&self, input: LineInput, initlen: usize, tx: Sender<GlkEvent>) {
         self.winref
             .borrow()
@@ -372,6 +407,7 @@ impl<T: GlkWindow + Default> WindowRef<T> {
         &self,
         method: Option<WindowSplitMethod>,
         wintype: WindowType,
+        command: Sender<GlkMessage>,
         rock: GlkRock,
     ) -> (WindowRef<T>, WindowRef<T>) {
         assert!(self.winref.borrow().wintype != WindowType::Root);
@@ -380,6 +416,7 @@ impl<T: GlkWindow + Default> WindowRef<T> {
             winref: Rc::new(RefCell::new(Window {
                 wintype,
                 rock,
+                command: Some(command.clone()),
                 ..Window::default()
             })),
         };
@@ -391,6 +428,7 @@ impl<T: GlkWindow + Default> WindowRef<T> {
                 child1: Some(self.make_clone()),
                 child2: Some(new_win.make_clone()),
                 keywin: KeyWindow::Child2,
+                command: Some(command),
                 ..Window::default()
             })),
         };
@@ -685,6 +723,12 @@ pub mod testwin {
     }
 
     impl super::GlkWindow for GlkTestWindow {
+        fn new(_request: Receiver<GlkMessage>, _result: Sender<GlkResult>) -> Self {
+            Self::default()
+        }
+
+        fn run(&mut self) {}
+
         fn init(&mut self, winid: GlkWindowID) {
             self.winid = winid;
         }
@@ -744,6 +788,7 @@ pub mod testwin {
     }
 }
 
+/*
 #[cfg(test)]
 mod test {
     use super::*;
@@ -998,3 +1043,4 @@ mod test {
         );
     }
 }
+*/

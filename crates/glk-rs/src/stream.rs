@@ -1,7 +1,9 @@
 use std::fmt::Debug;
 use std::io::{BufReader, Read};
+use std::sync::mpsc::Receiver;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
+use crate::entry::GlkResult;
 use crate::{prelude::GlkRock, GlkFileMode, GlkSeekMode};
 
 /// An opaque stream ID
@@ -68,6 +70,18 @@ impl GlkStream {
         }
     }
 
+    pub(crate) fn await_response(&mut self, response: &Receiver<GlkResult>) {
+        let Ok(result) = response.recv() else {
+            return;
+        };
+
+        let GlkResult::Result(len) = result else {
+            return;
+        };
+
+        self.write_count += len;
+    }
+
     fn check_write(&self) -> bool {
         if matches!(
             self.mode,
@@ -87,14 +101,18 @@ impl GlkStream {
         }
     }
 
-    pub fn put_char(&mut self, ch: u8) {
+    pub fn put_char(&mut self, ch: u8) -> WriteResponse {
         self.check_write();
-        self.write_count += self.sh.borrow_mut().put_char(ch);
+        let response = self.sh.borrow_mut().put_char(ch);
+        self.write_count += response.len;
+        response
     }
 
-    pub fn put_string(&mut self, s: &str) {
+    pub fn put_string(&mut self, s: &str) -> WriteResponse {
         self.check_write();
-        self.write_count += self.sh.borrow_mut().put_string(s);
+        let response = self.sh.borrow_mut().put_string(s);
+        self.write_count += response.len;
+        response
     }
 
     pub fn put_buffer(&mut self, buf: &[u8]) {
@@ -272,9 +290,23 @@ impl GlkStream {
     }
 }
 
+pub(crate) struct WriteResponse {
+    pub(crate) len: usize,
+    pub(crate) wait_needed: bool,
+}
+
+impl WriteResponse {
+    pub(crate) fn quick(len: usize) -> Self {
+        Self {
+            len,
+            wait_needed: false,
+        }
+    }
+}
+
 pub(crate) trait GlkStreamHandler {
-    fn put_char(&mut self, ch: u8) -> usize;
-    fn put_string(&mut self, s: &str) -> usize;
+    fn put_char(&mut self, ch: u8) -> WriteResponse;
+    fn put_string(&mut self, s: &str) -> WriteResponse;
     fn put_buffer(&mut self, buf: &[u8]) -> usize;
     fn put_char_uni(&mut self, ch: char) -> usize;
     fn put_buffer_uni(&mut self, buf: &[char]) -> usize;
