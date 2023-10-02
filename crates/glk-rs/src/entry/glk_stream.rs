@@ -108,31 +108,49 @@ impl<T: GlkWindow + Default> Glk<T> {
 
     /// write a buffer of bytes to a stream
     pub fn put_buffer_stream(&mut self, streamid: GlkStreamID, buf: &[u8]) {
-        if let Some(stream) = self.stream_mgr.get(streamid) {
-            stream.put_buffer(buf);
-            if let Some(echo) = stream.get_echo_stream() {
-                self.put_buffer_stream(echo, buf);
-            }
+        let Some(stream) = self.stream_mgr.get(streamid) else {
+            return;
+        };
+
+        let wr = stream.put_buffer(buf);
+        if wr.wait_needed {
+            stream.await_response(&self.response.as_ref().unwrap());
+        }
+
+        if let Some(echo) = stream.get_echo_stream() {
+            self.put_buffer_stream(echo, buf);
         }
     }
 
     /// write a unicode character to a stream
     pub fn put_char_stream_uni(&mut self, streamid: GlkStreamID, ch: char) {
-        if let Some(stream) = self.stream_mgr.get(streamid) {
-            stream.put_char_uni(ch);
-            if let Some(echo) = stream.get_echo_stream() {
-                self.put_char_stream_uni(echo, ch);
-            }
+        let Some(stream) = self.stream_mgr.get(streamid) else {
+            return;
+        };
+
+        let wr = stream.put_char_uni(ch);
+        if wr.wait_needed {
+            stream.await_response(&self.response.as_ref().unwrap());
+        }
+
+        if let Some(echo) = stream.get_echo_stream() {
+            self.put_char_stream_uni(echo, ch);
         }
     }
 
     /// write a buffer of unicode characters to a stream
     pub fn put_buffer_stream_uni(&mut self, streamid: GlkStreamID, buf: &[char]) {
-        if let Some(stream) = self.stream_mgr.get(streamid) {
-            stream.put_buffer_uni(buf);
-            if let Some(echo) = stream.get_echo_stream() {
-                self.put_buffer_stream_uni(echo, buf);
-            }
+        let Some(stream) = self.stream_mgr.get(streamid) else {
+            return;
+        };
+
+        let wr = stream.put_buffer_uni(buf);
+        if wr.wait_needed {
+            stream.await_response(&self.response.as_ref().unwrap());
+        }
+
+        if let Some(echo) = stream.get_echo_stream() {
+            self.put_buffer_stream_uni(echo, buf);
         }
     }
 
@@ -332,10 +350,9 @@ mod test {
         });
     }
 
-    /*
-        #[test]
-        fn can_read_char_buffer_from_stream() {
-            let mut glk = Glk::<GlkTestWindow>::new();
+    #[test]
+    fn can_read_char_buffer_from_stream() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let test_string = "testing";
             let mut buf = Vec::new();
             for ch in test_string.chars() {
@@ -347,8 +364,10 @@ mod test {
             let mem_stream = glk.stream_open_memory(buf, GlkFileMode::Read, 45);
 
             assert_eq!(glk.get_buffer_stream_uni(mem_stream, None), "testing");
-        }
+        });
+    }
 
+    /*
         #[test]
         fn can_read_char_from_stream() {
             let mut glk = Glk::<GlkTestWindow>::new();

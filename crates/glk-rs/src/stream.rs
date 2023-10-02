@@ -115,19 +115,25 @@ impl GlkStream {
         response
     }
 
-    pub fn put_buffer(&mut self, buf: &[u8]) {
+    pub fn put_buffer(&mut self, buf: &[u8]) -> WriteResponse {
         self.check_write();
-        self.write_count += self.sh.borrow_mut().put_buffer(buf);
+        let response = self.sh.borrow_mut().put_buffer(buf);
+        self.write_count += response.len;
+        response
     }
 
-    pub fn put_char_uni(&mut self, ch: char) {
+    pub fn put_char_uni(&mut self, ch: char) -> WriteResponse {
         self.check_write();
-        self.write_count += self.sh.borrow_mut().put_char_uni(ch);
+        let response = self.sh.borrow_mut().put_char_uni(ch);
+        self.write_count += response.len;
+        response
     }
 
-    pub fn put_buffer_uni(&mut self, buf: &[char]) {
+    pub fn put_buffer_uni(&mut self, buf: &[char]) -> WriteResponse {
         self.check_write();
-        self.write_count += self.sh.borrow_mut().put_buffer_uni(buf);
+        let response = self.sh.borrow_mut().put_buffer_uni(buf);
+        self.write_count += response.len;
+        response
     }
 
     pub fn get_char(&mut self) -> Option<u8> {
@@ -307,9 +313,9 @@ impl WriteResponse {
 pub(crate) trait GlkStreamHandler {
     fn put_char(&mut self, ch: u8) -> WriteResponse;
     fn put_string(&mut self, s: &str) -> WriteResponse;
-    fn put_buffer(&mut self, buf: &[u8]) -> usize;
-    fn put_char_uni(&mut self, ch: char) -> usize;
-    fn put_buffer_uni(&mut self, buf: &[char]) -> usize;
+    fn put_buffer(&mut self, buf: &[u8]) -> WriteResponse;
+    fn put_char_uni(&mut self, ch: char) -> WriteResponse;
+    fn put_buffer_uni(&mut self, buf: &[char]) -> WriteResponse;
     // note: put_string_uni() is not here because put_string() handles it
 
     fn get_char(&mut self) -> Option<u8>;

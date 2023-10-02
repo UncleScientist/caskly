@@ -104,44 +104,27 @@ impl<T: GlkWindow + Default> GlkStreamHandler for WindowRef<T> {
     fn put_char(&mut self, ch: u8) -> WriteResponse {
         let mut message = String::new();
         message.push(ch as char);
-
-        let _ = self.send_message(GlkMessage::Write {
-            winid: self.winref.borrow().this_id,
-            message,
-        });
-        WriteResponse {
-            len: 0,
-            wait_needed: true,
-        }
+        self.write_string(&message)
     }
 
     fn put_string(&mut self, s: &str) -> WriteResponse {
-        // self.winref.borrow().window.borrow_mut().write_string(s)
-        println!("** sending a Write(String) message");
-        let _ = self.send_message(GlkMessage::Write {
-            winid: self.winref.borrow().this_id,
-            message: s.to_string(),
-        });
-        WriteResponse {
-            len: 0,
-            wait_needed: true,
-        }
+        self.write_string(s)
     }
 
-    fn put_buffer(&mut self, buf: &[u8]) -> usize {
-        self.winref.borrow().window.borrow_mut().write_buffer(buf)
+    fn put_buffer(&mut self, buf: &[u8]) -> WriteResponse {
+        let message = buf.iter().map(|byte| *byte as char).collect::<String>();
+        self.write_string(&message)
     }
 
-    fn put_char_uni(&mut self, ch: char) -> usize {
-        self.winref.borrow().window.borrow_mut().write_char_uni(ch)
+    fn put_char_uni(&mut self, ch: char) -> WriteResponse {
+        let mut message = String::new();
+        message.push(ch);
+        self.write_string(&message)
     }
 
-    fn put_buffer_uni(&mut self, buf: &[char]) -> usize {
-        self.winref
-            .borrow()
-            .window
-            .borrow_mut()
-            .write_buffer_uni(buf)
+    fn put_buffer_uni(&mut self, buf: &[char]) -> WriteResponse {
+        let message = buf.iter().collect::<String>();
+        self.write_string(&message)
     }
 
     fn get_char(&mut self) -> Option<u8> {
@@ -338,6 +321,17 @@ impl<T: GlkWindow + Default> WindowManager<T> {
 impl<T: GlkWindow + Default> WindowRef<T> {
     pub(crate) fn send_message(&self, message: GlkMessage) {
         let _ = self.winref.borrow().command.as_ref().unwrap().send(message);
+    }
+
+    fn write_string(&self, s: &str) -> WriteResponse {
+        let _ = self.send_message(GlkMessage::Write {
+            winid: self.winref.borrow().this_id,
+            message: s.to_string(),
+        });
+        WriteResponse {
+            len: 0,
+            wait_needed: true,
+        }
     }
 
     pub(crate) fn get_line(&self, input: LineInput, initlen: usize, tx: Sender<GlkEvent>) {

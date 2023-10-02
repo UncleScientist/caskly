@@ -79,31 +79,44 @@ impl GlkStreamHandler for MemStream {
         }
     }
 
-    fn put_char_uni(&mut self, ch: char) -> usize {
+    fn put_char_uni(&mut self, ch: char) -> WriteResponse {
         let bytestream = GlkStream::char_to_bytestream(ch);
-        bytestream
-            .iter()
-            .map(|byte| self.put_char(*byte))
-            .map(|wr| wr.len)
-            .sum()
+        WriteResponse::quick(
+            bytestream
+                .iter()
+                .map(|byte| self.put_char(*byte))
+                .map(|wr| wr.len)
+                .sum(),
+        )
     }
 
     fn put_string(&mut self, s: &str) -> WriteResponse {
         WriteResponse {
-            len: s.chars().map(|ch| self.put_char_uni(ch)).sum(),
+            len: s
+                .chars()
+                .map(|ch| self.put_char_uni(ch))
+                .map(|wr| wr.len)
+                .sum(),
             wait_needed: false,
         }
     }
 
-    fn put_buffer(&mut self, buf: &[u8]) -> usize {
-        buf.iter()
-            .map(|byte| self.put_char(*byte))
-            .map(|wr| wr.len)
-            .sum()
+    fn put_buffer(&mut self, buf: &[u8]) -> WriteResponse {
+        WriteResponse::quick(
+            buf.iter()
+                .map(|byte| self.put_char(*byte))
+                .map(|wr| wr.len)
+                .sum(),
+        )
     }
 
-    fn put_buffer_uni(&mut self, buf: &[char]) -> usize {
-        buf.iter().map(|ch| self.put_char_uni(*ch)).sum()
+    fn put_buffer_uni(&mut self, buf: &[char]) -> WriteResponse {
+        WriteResponse::quick(
+            buf.iter()
+                .map(|ch| self.put_char_uni(*ch))
+                .map(|wr| wr.len)
+                .sum(),
+        )
     }
 
     fn get_char(&mut self) -> Option<u8> {
