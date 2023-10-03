@@ -45,6 +45,9 @@ pub enum GlkMessage {
         /// The configuration of the new window
         method: Option<WindowSplitMethod>,
     },
+
+    /// close a window and all of its children
+    Close(GlkWindowID),
 }
 
 /// The result of a request from glk

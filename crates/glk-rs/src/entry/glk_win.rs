@@ -10,6 +10,8 @@ use crate::{
     Glk, GlkFileMode,
 };
 
+use super::GlkMessage;
+
 impl<T: GlkWindow + Default> Glk<T> {
     /*
      * Glk Spec Section 3.2 - Window Opening, Closing, and Constraints
@@ -55,6 +57,8 @@ impl<T: GlkWindow + Default> Glk<T> {
     pub fn window_close(&mut self, win: GlkWindowID) -> Option<GlkStreamResult> {
         let winref = self.win_mgr.get_ref(win)?;
         let stream = winref.get_stream();
+
+        winref.send_message(GlkMessage::Close(win));
 
         self.win_mgr.close(win)?;
         self.stream_mgr.close(stream)

@@ -39,6 +39,7 @@ impl GlkWindow for SimpleWindow {
                 GlkMessage::Split { parent, winid, .. } => {
                     println!("[SPLIT parent {parent} -> {winid}]");
                 }
+                GlkMessage::Close(winid) => println!("[CLOSE window {winid}]"),
             }
         }
     }
