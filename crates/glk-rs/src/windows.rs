@@ -58,9 +58,6 @@ pub trait GlkWindow {
     /// Primary run loop for stdio or window system
     fn run(&mut self);
 
-    /// set up a window with specific parameters
-    fn init(&mut self, winid: GlkWindowID);
-
     /// returns the size of the window in its measurement system
     fn get_size(&self) -> GlkWindowSize;
 
@@ -72,21 +69,6 @@ pub trait GlkWindow {
 
     /// read a line from a window and transmit it to the event queue - must run separate thread
     fn get_line(&mut self, event: LineInput, initlen: usize, tx: Sender<GlkEvent>);
-
-    /// write a byte to a window
-    fn write_char(&mut self, ch: u8) -> usize;
-
-    /// write a string to a window
-    fn write_string(&mut self, s: &str) -> usize;
-
-    /// write an array of bytes to a window
-    fn write_buffer(&mut self, buf: &[u8]) -> usize;
-
-    /// write a unicode character to a window
-    fn write_char_uni(&mut self, ch: char) -> usize;
-
-    /// write an array of unicode characters to a window
-    fn write_buffer_uni(&mut self, buf: &[char]) -> usize;
 }
 
 /// A GLK window reference
@@ -212,7 +194,7 @@ impl<T: GlkWindow + Default> WindowManager<T> {
                     ..Window::default()
                 })),
             };
-            root_win.winref.borrow().window.borrow_mut().init(self.val);
+            // root_win.send_message(GlkMessage::Open(self.val));
             self.root = Some(0);
             self.windows.insert(0, root_win);
             self.val += 1;
@@ -232,7 +214,7 @@ impl<T: GlkWindow + Default> WindowManager<T> {
             })),
         };
 
-        main_win.winref.borrow().window.borrow_mut().init(self.val);
+        main_win.send_message(GlkMessage::Open(self.val));
         root_win.winref.borrow_mut().child1 = Some(main_win.make_clone());
 
         self.windows.insert(self.val, main_win);
@@ -289,15 +271,20 @@ impl<T: GlkWindow + Default> WindowManager<T> {
     ) -> Option<GlkWindowID> {
         let parentwin = self.windows.get(&parent)?;
 
-        let (pairwin, newwin) = parentwin.split(method, wintype, command, rock);
+        let (pairwin, newwin) = parentwin.split(method.clone(), wintype, command, rock);
 
         pairwin.winref.borrow_mut().this_id = self.val;
-        pairwin.winref.borrow().window.borrow_mut().init(self.val);
+        // pairwin.winref.borrow().window.borrow_mut().init(self.val);
         self.windows.insert(self.val, pairwin);
         self.val += 1;
 
         newwin.winref.borrow_mut().this_id = self.val;
-        newwin.winref.borrow().window.borrow_mut().init(self.val);
+        newwin.send_message(GlkMessage::Split {
+            parent,
+            winid: self.val,
+            wintype: newwin.get_type(),
+            method,
+        });
         self.windows.insert(self.val, newwin);
         self.val += 1;
 
@@ -324,7 +311,7 @@ impl<T: GlkWindow + Default> WindowRef<T> {
     }
 
     fn write_string(&self, s: &str) -> WriteResponse {
-        let _ = self.send_message(GlkMessage::Write {
+        self.send_message(GlkMessage::Write {
             winid: self.winref.borrow().this_id,
             message: s.to_string(),
         });
@@ -723,10 +710,6 @@ pub mod testwin {
 
         fn run(&mut self) {}
 
-        fn init(&mut self, winid: GlkWindowID) {
-            self.winid = winid;
-        }
-
         fn get_size(&self) -> GlkWindowSize {
             GlkWindowSize {
                 width: self.width,
@@ -746,31 +729,6 @@ pub mod testwin {
 
         fn get_line(&mut self, _event: LineInput, _initlen: usize, _tx: Sender<GlkEvent>) {
             // no-op
-        }
-
-        fn write_char(&mut self, ch: u8) -> usize {
-            self.textdata.push(ch as char);
-            1
-        }
-
-        fn write_string(&mut self, s: &str) -> usize {
-            self.textdata.push_str(s);
-            s.len()
-        }
-
-        fn write_buffer(&mut self, buf: &[u8]) -> usize {
-            self.textdata.extend(buf.iter().map(|a| *a as char));
-            buf.len()
-        }
-
-        fn write_char_uni(&mut self, ch: char) -> usize {
-            self.textdata.push(ch);
-            4
-        }
-
-        fn write_buffer_uni(&mut self, buf: &[char]) -> usize {
-            self.textdata.extend(buf.iter());
-            4 * buf.len()
         }
     }
 

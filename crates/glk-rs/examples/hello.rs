@@ -1,13 +1,12 @@
+mod util;
+use util::win::SimpleWindow;
+
 use std::{
-    sync::mpsc::{Receiver, Sender},
     thread,
     time::{Duration, Instant},
 };
 
-use rglk::{
-    entry::{GlkMessage, GlkResult},
-    prelude::*,
-};
+use rglk::prelude::*;
 
 fn main() {
     Glk::<SimpleWindow>::start(|glk| {
@@ -18,7 +17,7 @@ fn main() {
 
         let winstream = glk.window_get_stream(win).unwrap();
         glk.put_string_stream(winstream, "hello, world!\n");
-        glk.put_char_stream(winstream, '%' as u8);
+        glk.put_char_stream(winstream, b'%');
         glk.put_string_stream(winstream, "\n");
         let results = glk.window_close(win).unwrap();
 
@@ -81,112 +80,4 @@ fn main() {
     });
 
     // main event loop
-}
-
-#[derive(Debug, Default)]
-struct SimpleWindow {
-    winid: GlkWindowID,
-    request: Option<Receiver<GlkMessage>>,
-    result: Option<Sender<GlkResult>>,
-}
-
-impl GlkWindow for SimpleWindow {
-    fn new(request: Receiver<GlkMessage>, result: Sender<GlkResult>) -> Self {
-        Self {
-            request: Some(request),
-            result: Some(result),
-            winid: 0,
-        }
-    }
-
-    fn run(&mut self) {
-        while let Ok(message) = self.request.as_ref().unwrap().recv() {
-            let len = match message {
-                GlkMessage::Write { winid, message } => {
-                    println!("[Window {winid}]: {message}");
-                    message.len()
-                }
-            };
-            let _ = self.result.as_ref().unwrap().send(GlkResult::Result(len));
-        }
-    }
-
-    fn init(&mut self, winid: GlkWindowID) {
-        self.winid = winid;
-        println!("init window {winid}");
-    }
-
-    fn get_size(&self) -> GlkWindowSize {
-        todo!()
-    }
-
-    fn move_cursor(&mut self, _x: u32, _y: u32) {
-        todo!()
-    }
-
-    fn clear(&mut self) {
-        todo!()
-    }
-
-    fn get_line(&mut self, event: LineInput, _initlen: usize, tx: Sender<GlkEvent>) {
-        let win = self.winid;
-        println!("get line from {win}");
-        let _ = thread::spawn(move || {
-            let is_latin1 = match event {
-                LineInput::Latin1(val) => {
-                    println!(
-                        "{}",
-                        val.iter().map(|byte| *byte as char).collect::<String>()
-                    );
-                    true
-                }
-                LineInput::Unicode(val) => {
-                    println!(
-                        "{}",
-                        val.iter()
-                            .map(|long| char::from_u32(*long).unwrap())
-                            .collect::<String>()
-                    );
-                    false
-                }
-            };
-            let mut line = String::new();
-            let _ = std::io::stdin().read_line(&mut line); // <- convert to actual readline
-            println!(">>> read '{line}' <<<");
-            let _ = tx.send(if is_latin1 {
-                GlkEvent::LineInput {
-                    win,
-                    buf: LineInput::Latin1(line.into()),
-                }
-            } else {
-                GlkEvent::LineInput {
-                    win,
-                    buf: LineInput::Unicode(line.chars().map(|ch| ch as u32).collect::<Vec<_>>()),
-                }
-            });
-        });
-    }
-
-    fn write_char(&mut self, ch: u8) -> usize {
-        print!("{ch}");
-        1
-    }
-
-    fn write_string(&mut self, s: &str) -> usize {
-        print!("{s}");
-        s.len()
-    }
-
-    fn write_buffer(&mut self, buf: &[u8]) -> usize {
-        buf.iter().map(|byte| self.write_char(*byte)).sum()
-    }
-
-    fn write_char_uni(&mut self, ch: char) -> usize {
-        print!("{ch}");
-        4
-    }
-
-    fn write_buffer_uni(&mut self, buf: &[char]) -> usize {
-        buf.iter().map(|ch| self.write_char_uni(*ch)).sum()
-    }
 }

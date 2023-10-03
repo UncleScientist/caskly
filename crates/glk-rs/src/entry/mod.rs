@@ -15,7 +15,7 @@ use crate::gestalt::OutputType;
 use crate::keycode::Keycode;
 use crate::prelude::GlkRock;
 use crate::stream::{GlkStreamID, StreamManager};
-use crate::windows::{GlkWindow, GlkWindowID, WindowManager};
+use crate::windows::{GlkWindow, GlkWindowID, GlkWindowType, WindowManager, WindowSplitMethod};
 use crate::{gestalt::*, GlkFileUsage};
 
 /// A request from the glk library to the window code for something to happen
@@ -27,16 +27,37 @@ pub enum GlkMessage {
         /// message: the message to write to the window
         message: String,
     },
+
+    /// Open a new top-level window
+    Open(GlkWindowID),
+
+    /// Split an existing window with the given parameters
+    Split {
+        /// The parent window of the split
+        parent: GlkWindowID,
+
+        /// The window ID of the new window
+        winid: GlkWindowID,
+
+        /// The type of the new window
+        wintype: GlkWindowType,
+
+        /// The configuration of the new window
+        method: Option<WindowSplitMethod>,
+    },
 }
 
 /// The result of a request from glk
 #[derive(Debug)]
 pub enum GlkResult {
     /// the request worked, here's the answer
-    Success(GlkEvent),
+    Success,
 
     /// how many characters were written to output
     Result(usize),
+
+    /// A glk event
+    Event(GlkEvent),
 }
 
 /// The GLK object. TODO: Insert basic usage here
@@ -280,13 +301,6 @@ mod test {
 
     #[test]
     fn can_get_glk_version() {
-        /*
-        let glk = Glk::<GlkTestWindow>::new();
-        assert_eq!(
-            GestaltResult::Version(0x00000705),
-            glk.gestalt(Gestalt::Version)
-        );
-        */
         Glk::<GlkTestWindow>::start(|glk| {
             assert_eq!(
                 GestaltResult::Version(0x00000705),
@@ -294,12 +308,13 @@ mod test {
             )
         });
     }
-    /*
 
     #[test]
     fn can_convert_char_to_keycode() {
         assert_eq!(Keycode::Basic('c'), 'c'.into());
     }
+
+    /*
     #[test]
     fn can_handle_characters() {
         let glk = Glk::<GlkTestWindow>::new();

@@ -1,12 +1,10 @@
-use std::sync::mpsc::{Receiver, Sender};
+mod util;
+use util::win::SimpleWindow;
 
-use rglk::{
-    entry::{GlkMessage, GlkResult},
-    prelude::*,
-};
+use rglk::prelude::*;
 
 fn main() {
-    Glk::<UnimplementedWindow>::start(|glk| {
+    Glk::<SimpleWindow>::start(|glk| {
         let now = glk.current_time();
         println!("now = {now:?}");
 
@@ -38,69 +36,4 @@ fn main() {
             glk.simple_time_to_date_local(simple, 3600)
         );
     });
-}
-
-#[derive(Default)]
-struct UnimplementedWindow {
-    request: Option<Receiver<GlkMessage>>,
-    result: Option<Sender<GlkResult>>,
-}
-
-impl GlkWindow for UnimplementedWindow {
-    fn new(request: Receiver<GlkMessage>, result: Sender<GlkResult>) -> Self {
-        Self {
-            request: Some(request),
-            result: Some(result),
-        }
-    }
-
-    fn run(&mut self) {
-        while let Ok(_message) = self.request.as_ref().unwrap().recv() {
-            let _ = self.result.as_ref().unwrap().send(GlkResult::Result(0));
-        }
-    }
-    fn init(&mut self, _winid: GlkWindowID) {
-        todo!()
-    }
-
-    fn get_size(&self) -> GlkWindowSize {
-        todo!()
-    }
-
-    fn move_cursor(&mut self, _x: u32, _y: u32) {
-        todo!()
-    }
-
-    fn clear(&mut self) {
-        todo!()
-    }
-
-    fn get_line(
-        &mut self,
-        _event: LineInput,
-        _initlen: usize,
-        _tx: std::sync::mpsc::Sender<GlkEvent>,
-    ) {
-        todo!()
-    }
-
-    fn write_char(&mut self, _ch: u8) -> usize {
-        todo!()
-    }
-
-    fn write_string(&mut self, _s: &str) -> usize {
-        todo!()
-    }
-
-    fn write_buffer(&mut self, _buf: &[u8]) -> usize {
-        todo!()
-    }
-
-    fn write_char_uni(&mut self, _ch: char) -> usize {
-        todo!()
-    }
-
-    fn write_buffer_uni(&mut self, _buf: &[char]) -> usize {
-        todo!()
-    }
 }

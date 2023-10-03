@@ -76,7 +76,7 @@ impl<T: GlkWindow + Default> Glk<T> {
 
         let wr = stream.put_char(ch);
         if wr.wait_needed {
-            stream.await_response(&self.response.as_ref().unwrap());
+            stream.await_response(self.response.as_ref().unwrap());
         }
 
         if let Some(echo) = stream.get_echo_stream() {
@@ -92,7 +92,7 @@ impl<T: GlkWindow + Default> Glk<T> {
 
         let wr = stream.put_string(s);
         if wr.wait_needed {
-            stream.await_response(&self.response.as_ref().unwrap());
+            stream.await_response(self.response.as_ref().unwrap());
         }
 
         if let Some(echo) = stream.get_echo_stream() {
@@ -114,7 +114,7 @@ impl<T: GlkWindow + Default> Glk<T> {
 
         let wr = stream.put_buffer(buf);
         if wr.wait_needed {
-            stream.await_response(&self.response.as_ref().unwrap());
+            stream.await_response(self.response.as_ref().unwrap());
         }
 
         if let Some(echo) = stream.get_echo_stream() {
@@ -130,7 +130,7 @@ impl<T: GlkWindow + Default> Glk<T> {
 
         let wr = stream.put_char_uni(ch);
         if wr.wait_needed {
-            stream.await_response(&self.response.as_ref().unwrap());
+            stream.await_response(self.response.as_ref().unwrap());
         }
 
         if let Some(echo) = stream.get_echo_stream() {
@@ -146,7 +146,7 @@ impl<T: GlkWindow + Default> Glk<T> {
 
         let wr = stream.put_buffer_uni(buf);
         if wr.wait_needed {
-            stream.await_response(&self.response.as_ref().unwrap());
+            stream.await_response(self.response.as_ref().unwrap());
         }
 
         if let Some(echo) = stream.get_echo_stream() {
