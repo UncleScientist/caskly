@@ -322,7 +322,6 @@ mod test {
 
     use super::*;
 
-    /*
     fn get_tmpdir() -> String {
         if let Ok(tmpdir) = std::env::var("TMPDIR") {
             tmpdir.to_string()
@@ -330,7 +329,6 @@ mod test {
             "/tmp".to_string()
         }
     }
-    */
 
     #[test]
     fn can_open_a_file_and_write_to_it() {
@@ -367,10 +365,9 @@ mod test {
         });
     }
 
-    /*
-        #[test]
-        fn can_read_char_from_stream() {
-            let mut glk = Glk::<GlkTestWindow>::new();
+    #[test]
+    fn can_read_char_from_stream() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let unibuf = vec!['t', 'e', 's', 't', 'i', 'n', 'g'];
 
             let mut buf = Vec::new();
@@ -383,11 +380,12 @@ mod test {
 
             let mem_stream = glk.stream_open_memory(buf, GlkFileMode::Read, 45);
             assert_eq!(glk.get_char_stream_uni(mem_stream), Some('t'));
-        }
+        });
+    }
 
-        #[test]
-        fn can_read_a_line_of_bytes_from_a_stream() {
-            let mut glk = Glk::<GlkTestWindow>::new();
+    #[test]
+    fn can_read_a_line_of_bytes_from_a_stream() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let test_string = "testing line 1\ntesting line 2\ntesting line 3\n";
 
             let mut buf = Vec::new();
@@ -410,11 +408,12 @@ mod test {
                     .map(|c| c as u8)
                     .collect::<Vec<_>>()
             );
-        }
+        });
+    }
 
-        #[test]
-        fn can_read_byte_buffer_from_stream() {
-            let mut glk = Glk::<GlkTestWindow>::new();
+    #[test]
+    fn can_read_byte_buffer_from_stream() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let mem_stream = glk.stream_open_memory(
                 vec![b't', b'e', b's', b't', b'i', b'n', b'g'],
                 GlkFileMode::Read,
@@ -425,18 +424,20 @@ mod test {
                 glk.get_buffer_stream(mem_stream, None),
                 "testing".chars().map(|c| c as u8).collect::<Vec<_>>()
             );
-        }
+        });
+    }
 
-        #[test]
-        fn can_read_byte_from_stream() {
-            let mut glk = Glk::<GlkTestWindow>::new();
+    #[test]
+    fn can_read_byte_from_stream() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let mem_stream = glk.stream_open_memory(vec![b't'], GlkFileMode::Read, 45);
             assert_eq!(glk.get_char_stream(mem_stream), Some(b't'));
-        }
+        });
+    }
 
-        #[test]
-        fn can_read_a_line_of_chars_from_a_stream() {
-            let mut glk = Glk::<GlkTestWindow>::new();
+    #[test]
+    fn can_read_a_line_of_chars_from_a_stream() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let test_string = "testing line 1\ntesting line 2\ntesting line 3\n";
 
             let mut buf = Vec::new();
@@ -450,11 +451,12 @@ mod test {
 
             assert_eq!(glk.get_line_stream_uni(mem_stream, None), "testing line 1");
             assert_eq!(glk.get_line_stream_uni(mem_stream, None), "testing line 2");
-        }
+        });
+    }
 
-        #[test]
-        fn can_get_stream_position() {
-            let mut glk = Glk::<GlkTestWindow>::new();
+    #[test]
+    fn can_get_stream_position() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let mem_stream = glk.stream_open_memory(
                 vec![b't', b'e', b's', b't', b'i', b'n', b'g'],
                 GlkFileMode::Read,
@@ -464,11 +466,12 @@ mod test {
             assert_eq!(glk.stream_get_position(mem_stream).unwrap(), 0);
             glk.get_char_stream(mem_stream);
             assert_eq!(glk.stream_get_position(mem_stream).unwrap(), 1);
-        }
+        });
+    }
 
-        #[test]
-        fn can_seek_within_memory_stream() {
-            let mut glk = Glk::<GlkTestWindow>::new();
+    #[test]
+    fn can_seek_within_memory_stream() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let mem_stream = glk.stream_open_memory(
                 vec![b't', b'e', b's', b't', b'i', b'n', b'g'],
                 GlkFileMode::Read,
@@ -499,12 +502,13 @@ mod test {
                 assert_eq!(result.write_count, 0);
                 assert_eq!(bytes, Some(vec![b't', b'e', b's', b't', b'i', b'n', b'g']));
             }
-        }
+        });
+    }
 
-        #[test]
-        fn can_write_to_a_non_temp_file() {
+    #[test]
+    fn can_write_to_a_non_temp_file() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let tmpfile = format!("{}/io_file.txt", get_tmpdir());
-            let mut glk = Glk::<GlkTestWindow>::new();
             let fileref = glk
                 .fileref_create_by_name(GlkFileUsage::Data, tmpfile, 23)
                 .unwrap();
@@ -532,12 +536,13 @@ mod test {
             assert_eq!(result, "This is a test of a named file".to_string());
 
             glk.fileref_delete_file(fileref);
-        }
+        });
+    }
 
-        #[test]
-        fn can_append_to_a_file() {
+    #[test]
+    fn can_append_to_a_file() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let tmpfile = format!("{}/append_file.txt", get_tmpdir());
-            let mut glk = Glk::<GlkTestWindow>::new();
             let fileref = glk
                 .fileref_create_by_name(GlkFileUsage::Data, tmpfile, 23)
                 .unwrap();
@@ -576,12 +581,13 @@ mod test {
             assert_eq!(result, "This ");
 
             glk.fileref_delete_file(fileref);
-        }
+        });
+    }
 
-        #[test]
-        fn can_read_multiple_lines_from_a_file() {
+    #[test]
+    fn can_read_multiple_lines_from_a_file() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let tmpfile = format!("{}/multi_line_file.txt", get_tmpdir());
-            let mut glk = Glk::<GlkTestWindow>::new();
             let fileref = glk
                 .fileref_create_by_name(GlkFileUsage::Data, tmpfile, 23)
                 .unwrap();
@@ -629,12 +635,13 @@ mod test {
             assert_eq!(result, "Line 3\n");
 
             glk.stream_close(stream);
-        }
+        });
+    }
 
-        #[test]
-        fn can_read_and_write_utf8_characters() {
+    #[test]
+    fn can_read_and_write_utf8_characters() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let tmpfile = format!("{}/utf8_file.txt", get_tmpdir());
-            let mut glk = Glk::<GlkTestWindow>::new();
 
             let fileref = glk
                 .fileref_create_by_name(GlkFileUsage::Data, tmpfile, 23)
@@ -679,6 +686,6 @@ mod test {
             // TODO: read a string from a file
             // let input = glk.get_buffer_stream_uni(stream, None);
             // assert_eq!(input, "some trailing text?".to_string());
-        }
-    */
+        });
+    }
 }

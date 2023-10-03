@@ -53,7 +53,6 @@ impl<T: GlkWindow + Default> Glk<T> {
     }
 }
 
-/*
 #[cfg(test)]
 mod test {
     use crate::windows::testwin::GlkTestWindow;
@@ -62,9 +61,8 @@ mod test {
 
     #[test]
     fn can_check_for_events() {
-        let mut glk = Glk::<GlkTestWindow>::new();
-
-        assert_eq!(glk.select_poll(), GlkEvent::None);
+        Glk::<GlkTestWindow>::start(|glk| {
+            assert_eq!(glk.select_poll(), GlkEvent::None);
+        });
     }
 }
-*/

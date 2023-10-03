@@ -174,19 +174,16 @@ impl<T: GlkWindow + Default> Glk<T> {
         Some(win.get_stream())
     }
 
-    /* TEST ONLY FUNCTIONS */
-    /*
     #[cfg(test)]
     pub(crate) fn t_get_winref(&self, win: GlkWindowID) -> WindowRef<T> {
         self.win_mgr.get_ref(win).unwrap()
     }
-    */
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::windows::testwin::GlkTestWindow;
+    use crate::windows::{testwin::GlkTestWindow, WindowSplitAmount, WindowSplitPosition};
 
     #[test]
     fn can_create_a_window() {
@@ -196,11 +193,9 @@ mod test {
         });
     }
 
-    /*
-        #[test]
-        fn can_create_a_split_window() {
-            let mut glk = Glk::<GlkTestWindow>::new();
-
+    #[test]
+    fn can_create_a_split_window() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let win = glk
                 .window_open(None, GlkWindowType::TextBuffer, None, 73)
                 .unwrap();
@@ -215,31 +210,36 @@ mod test {
                 84,
             );
             assert!(win2.is_some());
-        }
+        });
+    }
 
-        #[test]
-        fn can_retrieve_window_information() {
-            let mut glk = Glk::<GlkTestWindow>::new();
-
+    #[test]
+    fn can_retrieve_window_information() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let win = glk
                 .window_open(None, GlkWindowType::TextBuffer, None, 73)
                 .unwrap();
             assert_eq!(glk.window_get_rock(win).unwrap(), 73);
             assert_eq!(glk.window_get_type(win).unwrap(), GlkWindowType::TextBuffer);
-        }
+        });
+    }
 
-        #[test]
-        #[should_panic]
-        fn must_use_existing_window_for_splits() {
-            let mut glk = Glk::<GlkTestWindow>::new();
-
+    /*
+     * We need to somehow detect the glk-thread panicking instead of the main thread
+     *
+    #[test]
+    #[should_panic]
+    fn must_use_existing_window_for_splits() {
+        Glk::<GlkTestWindow>::start(|glk| {
             glk.window_open(None, GlkWindowType::TextBuffer, None, 73);
             glk.window_open(None, GlkWindowType::TextBuffer, None, 73);
-        }
+        });
+    }
+    */
 
-        #[test]
-        fn can_iterate_windows() {
-            let mut glk = Glk::<GlkTestWindow>::new();
+    #[test]
+    fn can_iterate_windows() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let win1 = glk
                 .window_open(None, GlkWindowType::TextBuffer, None, 73)
                 .unwrap();
@@ -292,11 +292,12 @@ mod test {
             }
             assert_eq!(count, 5);
             assert_eq!([true, true, true, true, true], found);
-        }
+        });
+    }
 
-        #[test]
-        fn can_get_parent_of_window() {
-            let mut glk = Glk::<GlkTestWindow>::new();
+    #[test]
+    fn can_get_parent_of_window() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let win1 = glk
                 .window_open(None, GlkWindowType::TextBuffer, None, 73)
                 .unwrap();
@@ -315,11 +316,12 @@ mod test {
                 .unwrap();
             let parent1 = glk.window_get_parent(win2).unwrap();
             assert_eq!(glk.window_get_type(parent1).unwrap(), GlkWindowType::Pair);
-        }
+        });
+    }
 
-        #[test]
-        fn can_get_sibling_of_window() {
-            let mut glk = Glk::<GlkTestWindow>::new();
+    #[test]
+    fn can_get_sibling_of_window() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let win1 = glk
                 .window_open(None, GlkWindowType::TextBuffer, None, 73)
                 .unwrap();
@@ -339,21 +341,23 @@ mod test {
                 .unwrap();
             let sibling = glk.window_get_sibling(win2).unwrap();
             assert_eq!(sibling, win1);
-        }
+        });
+    }
 
-        #[test]
-        fn can_get_root_window() {
-            let mut glk = Glk::<GlkTestWindow>::new();
+    #[test]
+    fn can_get_root_window() {
+        Glk::<GlkTestWindow>::start(|glk| {
             assert!(glk.window_get_root().is_none());
             let win1 = glk
                 .window_open(None, GlkWindowType::TextBuffer, None, 73)
                 .unwrap();
             assert_eq!(glk.window_get_root().unwrap(), win1);
-        }
+        });
+    }
 
-        #[test]
-        fn can_put_byte_style_char_into_window() {
-            let mut glk = Glk::<GlkTestWindow>::new();
+    #[test]
+    fn can_put_byte_style_char_into_window() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let win = glk
                 .window_open(None, GlkWindowType::TextBuffer, None, 73)
                 .unwrap();
@@ -361,11 +365,12 @@ mod test {
             glk.put_char_stream(stream, b'x');
             let winref = glk.t_get_winref(win);
             assert_eq!(winref.winref.borrow().window.borrow().textdata, "x");
-        }
+        });
+    }
 
-        #[test]
-        fn can_write_to_two_different_windows() {
-            let mut glk = Glk::<GlkTestWindow>::new();
+    #[test]
+    fn can_write_to_two_different_windows() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let win1 = glk
                 .window_open(None, GlkWindowType::TextBuffer, None, 73)
                 .unwrap();
@@ -393,11 +398,12 @@ mod test {
             let win2 = glk.t_get_winref(win2);
             assert_eq!(win1.winref.borrow().window.borrow().textdata, "A");
             assert_eq!(win2.winref.borrow().window.borrow().textdata, "B");
-        }
+        });
+    }
 
-        #[test]
-        fn can_put_string_into_window() {
-            let mut glk = Glk::<GlkTestWindow>::new();
+    #[test]
+    fn can_put_string_into_window() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let win = glk
                 .window_open(None, GlkWindowType::TextBuffer, None, 73)
                 .unwrap();
@@ -408,11 +414,12 @@ mod test {
                 win.winref.borrow().window.borrow().textdata,
                 "hello, world!"
             );
-        }
+        });
+    }
 
-        #[test]
-        fn can_put_buffer_into_window() {
-            let mut glk = Glk::<GlkTestWindow>::new();
+    #[test]
+    fn can_put_buffer_into_window() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let win = glk
                 .window_open(None, GlkWindowType::TextBuffer, None, 73)
                 .unwrap();
@@ -420,11 +427,12 @@ mod test {
             glk.put_buffer_stream(stream, &[b'0', b'1', b'2', b'3']);
             let win = glk.t_get_winref(win);
             assert_eq!(win.winref.borrow().window.borrow().textdata, "0123");
-        }
+        });
+    }
 
-        #[test]
-        fn can_put_unicode_char_into_window() {
-            let mut glk = Glk::<GlkTestWindow>::new();
+    #[test]
+    fn can_put_unicode_char_into_window() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let win = glk
                 .window_open(None, GlkWindowType::TextBuffer, None, 73)
                 .unwrap();
@@ -432,11 +440,12 @@ mod test {
             glk.put_char_stream_uni(stream, 'q');
             let win = glk.t_get_winref(win);
             assert_eq!(win.winref.borrow().window.borrow().textdata, "q");
-        }
+        });
+    }
 
-        #[test]
-        fn can_put_unicode_buf_into_window() {
-            let mut glk = Glk::<GlkTestWindow>::new();
+    #[test]
+    fn can_put_unicode_buf_into_window() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let win = glk
                 .window_open(None, GlkWindowType::TextBuffer, None, 73)
                 .unwrap();
@@ -444,11 +453,12 @@ mod test {
             glk.put_buffer_stream_uni(stream, &['q', 'r', 's', 't', 'u', 'v']);
             let win = glk.t_get_winref(win);
             assert_eq!(win.winref.borrow().window.borrow().textdata, "qrstuv");
-        }
+        });
+    }
 
-        #[test]
-        fn can_change_default_stream() {
-            let mut glk = Glk::<GlkTestWindow>::new();
+    #[test]
+    fn can_change_default_stream() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let win = glk
                 .window_open(None, GlkWindowType::TextBuffer, None, 73)
                 .unwrap();
@@ -456,11 +466,12 @@ mod test {
             glk.stream_set_current(stream);
             assert!(glk.stream_get_current().is_some());
             assert_eq!(glk.stream_get_current(), Some(stream));
-        }
+        });
+    }
 
-        #[test]
-        fn can_write_to_default_stream() {
-            let mut glk = Glk::<GlkTestWindow>::new();
+    #[test]
+    fn can_write_to_default_stream() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let win1 = glk
                 .window_open(None, GlkWindowType::TextBuffer, None, 73)
                 .unwrap();
@@ -504,11 +515,12 @@ mod test {
                 win2.winref.borrow().window.borrow().textdata,
                 "Below ground. Look!"
             );
-        }
+        });
+    }
 
-        #[test]
-        fn can_count_chars_in_output() {
-            let mut glk = Glk::<GlkTestWindow>::new();
+    #[test]
+    fn can_count_chars_in_output() {
+        Glk::<GlkTestWindow>::start(|glk| {
             let win1 = glk
                 .window_open(None, GlkWindowType::TextBuffer, None, 73)
                 .unwrap();
@@ -530,6 +542,6 @@ mod test {
             let stream_results = glk.window_close(win2).unwrap();
             assert_eq!(stream_results.read_count, 0);
             assert_eq!(stream_results.write_count, 1);
-        }
-    */
+        });
+    }
 }
